@@ -1,0 +1,23 @@
+﻿<Window x:Class="Patcher.Window1"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Window1" Height="456" Width="618">
+    <Grid>
+		<GroupBox Header="Prototype Variables" Height="151" Margin="12,4,12,0" Name="groupBox1" VerticalAlignment="Top">
+			<Grid>
+				<TextBox Height="29" HorizontalAlignment="Left" Margin="6,6,0,0" Name="m_urlBox" VerticalAlignment="Top" Width="168">http://localhost/test/</TextBox>
+				<Label Height="30" Margin="184,5,0,0" Name="label1" VerticalAlignment="Top" HorizontalAlignment="Left" Width="78">Patch Server</Label>
+				<Button Margin="12,0,0,18" Name="Begin" Height="25" VerticalAlignment="Bottom" Click="Begin_Click" HorizontalAlignment="Left" Width="75">Begin</Button>
+				<TextBox HorizontalAlignment="Left" Margin="6,40,0,59.04" Name="m_installPathBox" Width="168">D:\patchtest</TextBox>
+				<Label Margin="184,39,0,59.04" Name="label2" HorizontalAlignment="Left" Width="86">Install Dir</Label>
+				<TextBox HorizontalAlignment="Right" Margin="0,40,105,59.04" Name="m_processBox" Width="131">notepad.exe</TextBox>
+				<Label Margin="0,40,6,58.04" Name="label3" HorizontalAlignment="Right" Width="93">Game</Label>
+			</Grid>
+		</GroupBox>
+		<ListBox Margin="12,161,12,116" Name="display" />
+		<ProgressBar Height="18" Margin="12,0,12,37" Name="Progress2" VerticalAlignment="Bottom" />
+		<ProgressBar Height="18" Margin="12,0,12,61" Name="Progress1" VerticalAlignment="Bottom" />
+		<Button Height="25" Margin="253,0,257,85" Name="m_btnLaunch" VerticalAlignment="Bottom" Click="Launch_Click" IsEnabled="False">Launch</Button>
+		<Label Height="29" Margin="12,0,12,7" Name="m_taskStatus" VerticalAlignment="Bottom"></Label>
+	</Grid>
+</Window>

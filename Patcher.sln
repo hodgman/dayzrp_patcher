@@ -1,0 +1,26 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 10.00
+# Visual Studio 2008
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Patcher", "Patcher\Patcher.csproj", "{0C3F8A4C-12B8-4409-A072-95EF1087836C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Manifester", "Manifester\Manifester.csproj", "{0D7BD5FA-588B-4E7D-BD49-409791B04341}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0C3F8A4C-12B8-4409-A072-95EF1087836C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0C3F8A4C-12B8-4409-A072-95EF1087836C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0C3F8A4C-12B8-4409-A072-95EF1087836C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0C3F8A4C-12B8-4409-A072-95EF1087836C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0D7BD5FA-588B-4E7D-BD49-409791B04341}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0D7BD5FA-588B-4E7D-BD49-409791B04341}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0D7BD5FA-588B-4E7D-BD49-409791B04341}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0D7BD5FA-588B-4E7D-BD49-409791B04341}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
