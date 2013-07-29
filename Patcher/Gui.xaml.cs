@@ -35,6 +35,8 @@ namespace Patcher
 		private DirectoryScanner m_scanner = new DirectoryScanner();
 		private Downloader m_downloader = new Downloader();
 
+		ProcessOutput m_game;
+
 		private string m_installPath;
 		private string m_baseUrl;
 		private Uri m_manifestUri;
@@ -65,22 +67,38 @@ namespace Patcher
 			display.Items.Add(text);
 		}
 
+		private void Retry_Click(object sender, RoutedEventArgs e)
+		{
+			Begin();
+		}
+
 		private void Begin_Click(object sender, RoutedEventArgs e)
 		{
-			m_btnLaunch.IsEnabled = false;
-			display.Items.Clear();
-			Log("Contacting patch server");
 			m_baseUrl = m_urlBox.Text;
 			m_installPath = m_installPathBox.Text;
 			m_manifestUri = new Uri(Path.Combine(m_baseUrl, "current.xml"));
-			m_downloader.DownloadBytes(m_manifestUri, PatchManifestDownloaded);
+			m_patch = null;
+			Begin();
+		}
+
+		private void Begin()
+		{
+			m_btnLaunch.IsEnabled = false;
+			m_btnRetry.IsEnabled = false;
+			display.Items.Clear();
+			Log("Contacting patch server");
+			if (m_patch == null)
+				m_downloader.DownloadBytes(m_manifestUri, PatchManifestDownloaded);
+			else
+				BeginScan();
 		}
 
 		private void PatchManifestDownloaded(Uri uri, byte[] raw, string error)
 		{
 			if (error != null)
 			{
-				Log("Failed contacting patch server: "+error);
+				Log("Failed contacting patch server: " + error);
+				m_btnRetry.IsEnabled = true;
 				return;
 			}
 			Debug.Assert(uri == m_manifestUri);
@@ -96,7 +114,6 @@ namespace Patcher
 				foreach (var a in m_patch.assets)
 					Log("\tFile: " + a.Key + ", " + StringExtension.ToHexString(a.Value.hash) + ", " + a.Value.uri.ToString());
 			}
-			Log("Checking local installation");
 
 			DirectoryInfo dir = null;
 			try
@@ -111,12 +128,13 @@ namespace Patcher
 				return;
 			}
 
-			m_cache = FileHashDatabase.Load(CacheFile);
 			BeginScan();
 		}
 
 		private void BeginScan()
 		{
+			Log("Checking local installation");
+			m_cache = FileHashDatabase.Load(CacheFile);
 			DirectoryScanner.ScanCompleteCallback callback =
 					(x, y) => Dispatcher.BeginInvoke(new DirectoryScanner.ScanCompleteCallback(DirectoryScanComplete), DispatcherPriority.Normal, new object[] { x, y });
 			m_scanner.BeginScan(m_installPath, callback);
@@ -127,6 +145,7 @@ namespace Patcher
 			if (error)
 			{
 				Log("Something went wrong when scanning installation directory");
+				m_btnRetry.IsEnabled = true;
 				return;
 			}
 
@@ -216,6 +235,7 @@ namespace Patcher
 			{
 				m_tasks = null;
 				Log("Installation is up to date");
+				m_taskStatus.Content = "Ready to launch";
 				m_btnLaunch.IsEnabled = true;
 			}
 		}
@@ -253,7 +273,7 @@ namespace Patcher
 								break;
 							}
 						}
-						Thread.Sleep(500);
+						Thread.Sleep(100);
 					}
 				}
 			}
@@ -320,29 +340,44 @@ namespace Patcher
 			}
 			else
 			{
+				m_btnRetry.IsEnabled = true;
 				m_taskStatus.Content = String.Format("There were {0} errors while attempting to update", m_tasks.numErrors);
 			}
 			m_tasks = null;
 		}
 
-		ProcessOutput m_game;
 		private void Launch_Click(object sender, RoutedEventArgs e)
 		{
-			m_btnLaunch.IsEnabled = false;
 			if( m_game != null )
 				m_game.Kill();
 			m_game = null;
-			string exe = m_processBox.Text;
-			string args = "";
-			m_game = ProcessOutput.Run(exe, args, OnGameExit_ThreadSafe);
-		}
-
-		private void OnGameExit_ThreadSafe(object sender, EventArgs e)
-		{
-			Dispatcher.BeginInvoke((Action)delegate { OnGameExit(); });
+			string dir = Path.GetFullPath(m_a2oaBox.Text);
+			string a2path = Path.GetFullPath(m_a2Box.Text);
+			string exe = Path.GetFullPath(Path.Combine(dir, "./Expansion/beta/ARMA2OA.exe"));
+			string args = String.Format(
+				"\"-mod={0};EXPANSION;ca\" " +
+				"\"-beta=Expansion\\beta;Expansion\\beta\\Expansion;\" " +
+				"-mod=@DayZRP -nosplash -nopause -skipIntro -world=Chernarus ",
+				a2path);
+			EventHandler onExit = (EventHandler)delegate(object a, EventArgs b)
+			{
+				Dispatcher.BeginInvoke((Action)delegate
+				{
+					OnGameExit();
+				});
+			};
+			m_game = ProcessOutput.Run(exe, args, dir, onExit);
+			if (m_game != null && !m_game.Finished)
+			{
+				m_taskStatus.Content = "Game is running...";
+				m_btnLaunch.IsEnabled = false;
+			}
+			else
+				m_taskStatus.Content = "Error launching game.";
 		}
 		private void OnGameExit()
 		{
+			m_taskStatus.Content = "Ready to launch";
 			m_btnLaunch.IsEnabled = true;
 		}
 	}

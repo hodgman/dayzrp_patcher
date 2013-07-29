@@ -31,7 +31,7 @@ namespace util
 			}
 		}
 
-		public static ProcessOutput Run(string executable, string args, EventHandler onExit)
+		public static ProcessOutput Run(string executable, string args, string dir, EventHandler onExit)
 		{
 			System.Diagnostics.Process proc = new System.Diagnostics.Process();
 			ProcessOutput output = new ProcessOutput { proc = proc };
@@ -45,11 +45,19 @@ namespace util
 			proc.StartInfo.UseShellExecute = false;
 			proc.StartInfo.RedirectStandardError = true;
 			proc.StartInfo.RedirectStandardOutput = true;
+			proc.StartInfo.WorkingDirectory = dir;
 			proc.EnableRaisingEvents = true;
-			proc.Start();
-			proc.BeginOutputReadLine();
-			proc.BeginErrorReadLine();
-			return output;
+			try
+			{
+				proc.Start();
+				proc.BeginOutputReadLine();
+				proc.BeginErrorReadLine();
+				return output;
+			}
+			catch (Exception)
+			{
+				return null;
+			}
 		}
 
 		private void OnOutput(object proc, DataReceivedEventArgs data)

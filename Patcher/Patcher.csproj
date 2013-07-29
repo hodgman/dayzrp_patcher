@@ -73,7 +73,7 @@
     <Compile Include="..\Util\FileHashDatabase.cs" />
     <Compile Include="..\Util\PatchManifest.cs" />
     <Compile Include="..\Util\ProcessOutput.cs" />
-    <Compile Include="..\Util\patcher.cs" />
+    <Compile Include="..\Util\Patcher.cs" />
     <Compile Include="Properties\AssemblyInfo.cs">
       <SubType>Code</SubType>
     </Compile>
