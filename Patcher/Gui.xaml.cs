@@ -19,6 +19,9 @@ using System.Windows.Threading;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Runtime.Remoting.Messaging;
 using util;
+using ArmaServerInfo;
+using System.Timers;
+using Microsoft.Win32;
 
 namespace Patcher
 {
@@ -30,8 +33,24 @@ namespace Patcher
 		public Window1()
 		{
 			InitializeComponent();
+			m_timer = new System.Timers.Timer();
+			m_timer.Elapsed += (ElapsedEventHandler)delegate(object a, ElapsedEventArgs b)
+			{
+				CheckServers();
+				m_timer.Interval = 5000;
+				m_timer.Enabled = true;
+			};
+			m_timer.AutoReset = false;
+			m_timer.Enabled = true;
+
+
+			m_a2Box.Text = ReadRegString("Bohemia Interactive Studio\\ArmA 2", "MAIN");
+			m_a2oaBox.Text = ReadRegString("Bohemia Interactive Studio\\ArmA 2 OA", "MAIN");
 		}
 
+		private string LauncherVersion { get { return App.LauncherVersion; } }
+
+		private System.Timers.Timer m_timer;
 		private DirectoryScanner m_scanner = new DirectoryScanner();
 		private Downloader m_downloader = new Downloader();
 
@@ -48,7 +67,7 @@ namespace Patcher
 			public int countPatchTasks;
 			public int totalPatchTasks;
 			public List<FileInfo> toDelete;
-			public Dictionary<FileInfo, PatchManifest.AssetInfo> toDownload;
+			public Dictionary<FileInfo, Uri> toDownload;
 			public int numErrors;
 		}
 		private PatchTasks m_tasks;
@@ -83,7 +102,8 @@ namespace Patcher
 
 		private void Begin()
 		{
-			m_btnLaunch.IsEnabled = false;
+			//!	m_btnLaunch.IsEnabled = false;
+			m_btnLaunch.IsEnabled = true;
 			m_btnRetry.IsEnabled = false;
 			display.Items.Clear();
 			Log("Contacting patch server");
@@ -104,14 +124,28 @@ namespace Patcher
 			Debug.Assert(uri == m_manifestUri);
 			XmlDocument doc = new XmlDocument();
 			MemoryStream stream = new MemoryStream(raw);
-			doc.Load(stream);
-			m_patch = PatchManifest.Parse(doc, m_baseUrl);
+			try
+			{
+				doc.Load(stream);
+				m_patch = PatchManifest.Parse(doc, m_baseUrl);
+			}
+			catch (Exception) { }
 			if (m_patch == null)
+			{
 				Log("Failed to parse XML document");
+				m_btnRetry.IsEnabled = true;
+				return;
+			}
 			else
 			{
 				Log("Retrieved manifest for version: " + m_patch.version);
-				foreach (var a in m_patch.assets)
+				if (!String.IsNullOrEmpty(m_patch.launcherVersion) && m_patch.launcherVersion != LauncherVersion)
+				{
+					Log("New version of launcher available: " + m_patch.launcherVersion);
+					StartLauncherDownload();
+					return;
+				}
+				else foreach (var a in m_patch.assets)
 					Log("\tFile: " + a.Key + ", " + StringExtension.ToHexString(a.Value.hash) + ", " + a.Value.uri.ToString());
 			}
 
@@ -125,10 +159,68 @@ namespace Patcher
 			catch (Exception)
 			{
 				Log("Installation directory is not valid");
+				m_btnRetry.IsEnabled = true;
 				return;
 			}
 
 			BeginScan();
+		}
+
+		private FileInfo m_tempNewPatcher;
+		private void StartLauncherDownload()
+		{
+			Debug.Assert(m_tasks == null);
+			m_tasks = new PatchTasks
+			{
+				countPatchTasks = 0,
+				totalPatchTasks = 1,
+				toDelete = new List<FileInfo>(),
+				toDownload = new Dictionary<FileInfo, Uri>(),
+				numErrors = 0
+			};
+
+			m_tempNewPatcher = new FileInfo(Path.GetTempFileName()+"_launcher_update.exe");
+			m_tasks.toDownload.Add(m_tempNewPatcher, m_patch.launcherUri);
+			
+			Progress1.Value = Progress1.Minimum;
+			Progress2.Value = Progress2.Minimum;
+			Action task = new Action(DoPatchTasks);
+			task.BeginInvoke(new AsyncCallback(LauncherDownloadComplete_ThreadSafe), this);
+		}
+		private void LauncherDownloadComplete_ThreadSafe(IAsyncResult ar)
+		{
+			Dispatcher.BeginInvoke(DispatcherPriority.Normal, (Action<IAsyncResult>)delegate(IAsyncResult a) { this.LauncherDownloadComplete(a); }, ar);
+		}
+		private void LauncherDownloadComplete(IAsyncResult ar)
+		{
+			AsyncResult result = (AsyncResult)ar;
+			Action caller = (Action)result.AsyncDelegate;
+			caller.EndInvoke(ar);
+			Debug.Assert(m_tasks != null);
+
+			if (m_tasks.numErrors != 0)
+			{
+				Log("Error updating launcher");
+			}
+			else
+			{
+				string currentExe = System.Reflection.Assembly.GetExecutingAssembly().Location;
+				try
+				{
+					string args = "-move \"" + currentExe + "\"";
+					if (ProcessOutput.Run(m_tempNewPatcher.FullName, args, Path.GetDirectoryName(currentExe), null, true) == null)
+						Log("Trouble starting new launcher version!");
+					else
+						Application.Current.Shutdown();
+				}
+				catch (Exception)
+				{
+					Log("Trouble restarting new launcher version!");
+				}
+			}
+			m_btnRetry.IsEnabled = true;
+			m_tasks = null;
+			m_tempNewPatcher = null;
 		}
 
 		private void BeginScan()
@@ -155,7 +247,7 @@ namespace Patcher
 				countPatchTasks = 0,
 				totalPatchTasks = results.Count + m_patch.assets.Count,
 				toDelete = new List<FileInfo>(),
-				toDownload = new Dictionary<FileInfo, PatchManifest.AssetInfo>(),
+				toDownload = new Dictionary<FileInfo, Uri>(),
 				numErrors = 0
 			};
 			Progress1.Value = Progress1.Minimum;
@@ -195,7 +287,7 @@ namespace Patcher
 					else
 					{
 						Log_ThreadSafe("\t Invalid: " + name + ", get from " + patchFile.uri.ToString());
-						m_tasks.toDownload.Add(file, patchFile);
+						m_tasks.toDownload.Add(file, patchFile.uri);
 					}
 				}
 			}
@@ -205,7 +297,7 @@ namespace Patcher
 				if(alreadyInspected.Contains(patchFile.Key.ToLowerInvariant()))
 					continue;
 				Log_ThreadSafe("\t Missing: " + patchFile.Key + ", get from " + patchFile.Value.uri.ToString());
-				m_tasks.toDownload.Add(m_cache.GetAbsoluteFile(patchFile.Key), patchFile.Value);
+				m_tasks.toDownload.Add(m_cache.GetAbsoluteFile(patchFile.Key), patchFile.Value.uri);
 			}
 
 			m_cache.Save(CacheFile);
@@ -254,10 +346,10 @@ namespace Patcher
 			{
 				Log_ThreadSafe("Downloading " + nameInfo.Key);
 				SetTaskProgressBar_ThreadSafe(0, "");
-				object handle = m_downloader.DownloadFile(nameInfo.Value.uri, nameInfo.Key.FullName, FileDownloaded, ProgressUpdate);
+				object handle = m_downloader.DownloadFile(nameInfo.Value, nameInfo.Key.FullName, FileDownloaded, ProgressUpdate);
 				if (handle == null)
 				{
-					Log_ThreadSafe("Failed to initiate download of " + nameInfo.Value.uri.ToString());
+					Log_ThreadSafe("Failed to initiate download of " + nameInfo.Value.ToString());
 					IncrementPatchProgressBar_ThreadSafe(true);
 				}
 				else
@@ -346,6 +438,31 @@ namespace Patcher
 			m_tasks = null;
 		}
 
+		string ReadRegString(string path, string key)
+		{
+			RegistryKey[] roots = new RegistryKey[2] { Registry.CurrentUser, Registry.LocalMachine };
+			string[] prefixes = new string[2] { "", "Wow6432Node\\" };
+			for (int i = 0; i != 2; ++i)
+			{
+				RegistryKey root = roots[i];
+				for (int j = 0; j != 2; ++j)
+				{
+					try
+					{
+						RegistryKey subKey = root.OpenSubKey("SOFTWARE\\" + prefixes[j] + path);
+						if (subKey != null)
+						{
+							object value = subKey.GetValue(key);
+							if (value != null)
+								return value.ToString();
+						}
+					}
+					catch (Exception) { }
+				}
+			}
+			return null;
+		}
+
 		private void Launch_Click(object sender, RoutedEventArgs e)
 		{
 			if( m_game != null )
@@ -366,7 +483,15 @@ namespace Patcher
 					OnGameExit();
 				});
 			};
-			m_game = ProcessOutput.Run(exe, args, dir, onExit);
+
+			string steamExe = ReadRegString("Valve\\Steam", "SteamExe");
+			if (steamExe != null)
+			{
+				exe = steamExe;
+				args = "-applaunch 219540 " + args;
+			}
+
+			m_game = ProcessOutput.Run(exe, args, dir, onExit, false);
 			if (m_game != null && !m_game.Finished)
 			{
 				m_taskStatus.Content = "Game is running...";
@@ -379,6 +504,27 @@ namespace Patcher
 		{
 			m_taskStatus.Content = "Ready to launch";
 			m_btnLaunch.IsEnabled = true;
+		}
+
+
+		private GameServer gs = new GameServer("81.170.229.148", 2302);
+		private void CheckServers()
+		{
+			gs.Update();
+			bool online = gs.IsOnline;
+			int numPlayers = 0;
+			int maxPlayers = 50;
+			string name = "S1";
+			if (gs.ServerInfo != null )
+			{
+				numPlayers = gs.ServerInfo.NumPlayers;
+				maxPlayers = gs.ServerInfo.MaxPlayers;
+				name = gs.ServerInfo.HostName;
+			}
+			Dispatcher.BeginInvoke((Action)delegate
+			{
+				m_serverStatus.Text = String.Format("{0} {1} {2}/{3}", name, online ? "Online" : "Offline", numPlayers, maxPlayers);
+			});
 		}
 	}
 }

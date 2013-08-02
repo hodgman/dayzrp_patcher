@@ -40,6 +40,20 @@ namespace util
 				bytes[i / 2] = Convert.ToByte(hex.Substring(i, 2), 16);
 			return bytes;
 		}
+		public static bool IsNullOrWhiteSpace(this string value)
+		{
+			if (value != null)
+			{
+				for (int i = 0; i < value.Length; i++)
+				{
+					if (!char.IsWhiteSpace(value[i]))
+					{
+						return false;
+					}
+				}
+			}
+			return true;
+		}
 	}
 	public static class XmlNodeExtension
 	{

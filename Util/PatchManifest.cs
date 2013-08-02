@@ -12,6 +12,8 @@ namespace util
 {
 	public class PatchManifest
 	{
+		public Uri launcherUri;
+		public string launcherVersion;
 		public string version;
 		public class AssetInfo
 		{
@@ -27,11 +29,15 @@ namespace util
 		}
 		public static PatchManifest Parse(XmlDocument doc, string baseUrl)
 		{
+			Uri baseUri = new Uri(baseUrl);
 			PatchManifest patchInfo = new PatchManifest();
 			XmlNode xmlPatch = doc.SelectSingleNode("patch");
+			patchInfo.launcherVersion = xmlPatch.Attribute("launcherVersion", "");
+			string launcherUrl = xmlPatch.Attribute("launcherUrl", "");
+			if (!Uri.TryCreate(baseUri, launcherUrl, out patchInfo.launcherUri))
+				return null;
 			patchInfo.version = xmlPatch.Attribute("version", "");
 			XmlNodeList xmlFiles = xmlPatch.SelectNodes("file");
-			Uri baseUri = new Uri(baseUrl);
 			foreach (XmlNode xmlFile in xmlFiles)
 			{
 				string path = xmlFile.Attribute("path", "");

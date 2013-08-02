@@ -74,6 +74,21 @@
     <Compile Include="..\Util\PatchManifest.cs" />
     <Compile Include="..\Util\ProcessOutput.cs" />
     <Compile Include="..\Util\Patcher.cs" />
+    <Compile Include="ArmaServerInfos\GameServer.cs" />
+    <Compile Include="ArmaServerInfos\GameServerCollection.cs" />
+    <Compile Include="ArmaServerInfos\Helpers.cs" />
+    <Compile Include="ArmaServerInfos\Logger.cs" />
+    <Compile Include="ArmaServerInfos\NetworkSettings.cs" />
+    <Compile Include="ArmaServerInfos\Protocol\ChallengePacket.cs" />
+    <Compile Include="ArmaServerInfos\Protocol\InfoPacket.cs" />
+    <Compile Include="ArmaServerInfos\Protocol\Packet.cs" />
+    <Compile Include="ArmaServerInfos\Protocol\PacketCollection.cs" />
+    <Compile Include="ArmaServerInfos\Protocol\PacketTypes.cs" />
+    <Compile Include="ArmaServerInfos\Protocol\Player.cs" />
+    <Compile Include="ArmaServerInfos\Protocol\PlayerCollection.cs" />
+    <Compile Include="ArmaServerInfos\Protocol\ServerInfo.cs" />
+    <Compile Include="ArmaServerInfos\Protocol\ServerPacket.cs" />
+    <Compile Include="ArmaServerInfos\QueryClient.cs" />
     <Compile Include="Properties\AssemblyInfo.cs">
       <SubType>Code</SubType>
     </Compile>

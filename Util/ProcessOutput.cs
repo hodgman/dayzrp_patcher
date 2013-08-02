@@ -31,27 +31,38 @@ namespace util
 			}
 		}
 
-		public static ProcessOutput Run(string executable, string args, string dir, EventHandler onExit)
+		public static ProcessOutput Run(string executable, string args, string dir, EventHandler onExit, bool runAsAdmin)
 		{
 			System.Diagnostics.Process proc = new System.Diagnostics.Process();
 			ProcessOutput output = new ProcessOutput { proc = proc };
-			proc.OutputDataReceived += new DataReceivedEventHandler(output.OnOutput);
-			proc.ErrorDataReceived += new DataReceivedEventHandler(output.OnError);
 			if (onExit != null)
 				proc.Exited += onExit;
+			if (runAsAdmin)
+			{
+				proc.StartInfo.UseShellExecute = true;
+				proc.StartInfo.Verb = "runas";
+			}
+			else
+			{
+				proc.StartInfo.UseShellExecute = false;
+				proc.StartInfo.RedirectStandardError = true;
+				proc.StartInfo.RedirectStandardOutput = true;
+				proc.OutputDataReceived += new DataReceivedEventHandler(output.OnOutput);
+				proc.ErrorDataReceived += new DataReceivedEventHandler(output.OnError);
+			}
 			proc.StartInfo.FileName = executable;
 			proc.StartInfo.Arguments = args;
 			proc.StartInfo.CreateNoWindow = true;
-			proc.StartInfo.UseShellExecute = false;
-			proc.StartInfo.RedirectStandardError = true;
-			proc.StartInfo.RedirectStandardOutput = true;
 			proc.StartInfo.WorkingDirectory = dir;
 			proc.EnableRaisingEvents = true;
 			try
 			{
 				proc.Start();
-				proc.BeginOutputReadLine();
-				proc.BeginErrorReadLine();
+				if (!runAsAdmin)
+				{
+					proc.BeginOutputReadLine();
+					proc.BeginErrorReadLine();
+				}
 				return output;
 			}
 			catch (Exception)
