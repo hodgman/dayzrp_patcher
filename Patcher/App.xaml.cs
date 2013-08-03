@@ -21,7 +21,8 @@ namespace Patcher
 	/// </summary>
 	public partial class App : Application
 	{
-		public static string LauncherVersion { get { return "0.1"; } }
+		public static string LauncherVersion { get { return "0.5b"; } }
+
 		protected override void OnStartup(StartupEventArgs e)
 		{
 			if (e.Args.Length > 0 && e.Args[0].ToLower() == "-version")

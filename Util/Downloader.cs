@@ -53,6 +53,8 @@ namespace util
 				FileInfo file = new FileInfo(fileName);
 				if (file.Exists)
 					file.Delete();
+				if (!file.Directory.Exists)
+					file.Directory.Create();
 				client.DownloadFileAsync(uri, fileName, handle);
 			}
 			catch (Exception)

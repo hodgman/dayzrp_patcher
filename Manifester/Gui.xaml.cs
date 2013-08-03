@@ -89,7 +89,7 @@ namespace Manifester
 				return;
 			}
 
-			var patcher = ProcessOutput.Run(patcherExeBox.Text, "-version", "", null, false);
+			var patcher = ProcessOutput.Run(patcherExeBox.Text, "-version", "", null, false, false);
 			string patcherVersion = "[Fix me by hand]";
 			if (patcher != null)
 			{
@@ -106,6 +106,8 @@ namespace Manifester
 			launcherUrl.Value = Path.GetFileName(patcherExeBox.Text);
 			dataDir.Value = dataDirBox.Text;
 			rootNode.Attributes.Append(dataDir);
+			rootNode.Attributes.Append(launcherUrl);
+			rootNode.Attributes.Append(launcherVersion);
 			doc.AppendChild(rootNode);
 			foreach (var file in results)
 			{

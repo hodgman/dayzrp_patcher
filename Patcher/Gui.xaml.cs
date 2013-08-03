@@ -30,22 +30,67 @@ namespace Patcher
 	/// </summary>
 	public partial class Window1 : Window
 	{
+		private string m_installPath_Arma2;
+		private string m_installPath_Arma2OA;
+		private string m_installPath_DayZRP;
 		public Window1()
 		{
 			InitializeComponent();
-			m_timer = new System.Timers.Timer();
-			m_timer.Elapsed += (ElapsedEventHandler)delegate(object a, ElapsedEventArgs b)
+
+			m_versionText.Text = m_versionText.Text + " " + App.LauncherVersion;
+
+			m_steamTickBox.IsChecked = Properties.Settings.Default.useSteam;
+			m_launchCommands.Text = Properties.Settings.Default.launchArgs;
+
+			m_servers.Add("RP1 : S1", new GameServer("81.170.227.227", 2302));
+			m_servers.Add("RP1 : S2", new GameServer("81.170.229.148", 2302));
+			m_serverListBox.ItemsSource = new List<ServerListItem>();
+
+			Refresh_Click(null, null);
+
+			m_installPath_Arma2 = ReadRegString("Bohemia Interactive Studio\\ArmA 2", "MAIN");
+			m_installPath_Arma2OA = ReadRegString("Bohemia Interactive Studio\\ArmA 2 OA", "MAIN");
+			if (m_installPath_Arma2 == null)
 			{
-				CheckServers();
-				m_timer.Interval = 5000;
-				m_timer.Enabled = true;
-			};
-			m_timer.AutoReset = false;
-			m_timer.Enabled = true;
+				MessageBox.Show("Could not locate Arma 2 installation");
+				Application.Current.Shutdown();
+			}
+			if (m_installPath_Arma2OA == null)
+			{
+				MessageBox.Show("Could not locate Arma 2 Operation Arrowhead installation");
+				Application.Current.Shutdown();
+			}
+			m_installPath_DayZRP = Path.Combine(m_installPath_Arma2OA, "./@DayZRP");
 
+			m_baseUrl = "http://localhost/test/";
+			m_manifestUri = new Uri(Path.Combine(m_baseUrl, "current.xml"));
+			m_patch = null;
+			m_patchServerBox.Text = m_baseUrl;
+			Begin();
+		}
 
-			m_a2Box.Text = ReadRegString("Bohemia Interactive Studio\\ArmA 2", "MAIN");
-			m_a2oaBox.Text = ReadRegString("Bohemia Interactive Studio\\ArmA 2 OA", "MAIN");
+		private void m_patchServerBox_TextChanged(object sender, TextChangedEventArgs e)
+		{
+			m_baseUrl = m_patchServerBox.Text;
+			try
+			{
+				m_manifestUri = null;
+				m_manifestUri = new Uri(Path.Combine(m_baseUrl, "current.xml"));
+			}
+			catch (Exception) { }
+			m_xmlUrlBox.Text = m_manifestUri == null ? "null" : m_manifestUri.AbsoluteUri;
+		}
+
+		private void SteamTickBox_Changed(object sender, RoutedEventArgs e)
+		{
+			Properties.Settings.Default.useSteam = (m_steamTickBox.IsChecked == true);
+			Properties.Settings.Default.Save();
+		}
+
+		private void LaunchCommands_TextChanged(object sender, TextChangedEventArgs e)
+		{
+			Properties.Settings.Default.launchArgs = m_launchCommands.Text;
+			Properties.Settings.Default.Save();
 		}
 
 		private void Close_Click(object sender, RoutedEventArgs e)
@@ -61,13 +106,11 @@ namespace Patcher
 
 		private string LauncherVersion { get { return App.LauncherVersion; } }
 
-		private System.Timers.Timer m_timer;
 		private DirectoryScanner m_scanner = new DirectoryScanner();
 		private Downloader m_downloader = new Downloader();
 
 		ProcessOutput m_game;
 
-		private string m_installPath;
 		private string m_baseUrl;
 		private Uri m_manifestUri;
 		private PatchManifest m_patch;
@@ -85,7 +128,7 @@ namespace Patcher
 
 		FileInfo CacheFile
 		{
-			get { return new FileInfo(Path.Combine(m_installPath, "Launcher.Cache")); }
+			get { return new FileInfo(Path.Combine(m_installPath_DayZRP, "Launcher.Cache")); }
 		}
 
 		private void Log_ThreadSafe(string text)
@@ -102,26 +145,17 @@ namespace Patcher
 			Begin();
 		}
 
-		private void Begin_Click(object sender, RoutedEventArgs e)
-		{
-			m_baseUrl = m_urlBox.Text;
-			m_installPath = m_installPathBox.Text;
-			m_manifestUri = new Uri(Path.Combine(m_baseUrl, "current.xml"));
-			m_patch = null;
-			Begin();
-		}
-
 		private void Begin()
 		{
-			//!	m_btnLaunch.IsEnabled = false;
-			m_btnLaunch.IsEnabled = true;
+			m_btnLaunch1.IsEnabled = false;
+			m_btnLaunch2.IsEnabled = false;
 			m_btnRetry.IsEnabled = false;
 			display.Items.Clear();
 			Log("Contacting patch server");
-			if (m_patch == null)
+		//	if (m_patch == null)
 				m_downloader.DownloadBytes(m_manifestUri, PatchManifestDownloaded);
-			else
-				BeginScan();
+		//	else
+		//		BeginScan();
 		}
 
 		private void PatchManifestDownloaded(Uri uri, byte[] raw, string error)
@@ -156,16 +190,25 @@ namespace Patcher
 					StartLauncherDownload();
 					return;
 				}
-				else foreach (var a in m_patch.assets)
-					Log("\tFile: " + a.Key + ", " + StringExtension.ToHexString(a.Value.hash) + ", " + a.Value.uri.ToString());
+			//	else foreach (var a in m_patch.assets)
+			//		Log("\tFile: " + a.Key + ", " + StringExtension.ToHexString(a.Value.hash) + ", " + a.Value.uri.ToString());
 			}
 
 			DirectoryInfo dir = null;
 			try
 			{
-				dir = new DirectoryInfo(m_installPath);
-				if (!dir.Exists )
+				dir = new DirectoryInfo(m_installPath_DayZRP);
+				if (!dir.Exists)
+				{
 					dir.Create();
+					MessageBoxResult r = MessageBox.Show("DayZRP is not currently installed!\nWould you like to use BitTorrent for the initial installation (faster)?", "Couldn't find existing DayZRP installation", MessageBoxButton.YesNo);
+					if (r == MessageBoxResult.Yes)
+					{
+						ProcessOutput.Run("http://www.dayzrp.com/t-dayzrp-mod-download", "", "", null, false, true);
+						m_btnRetry.IsEnabled = true;
+						return;
+					}
+				}
 			}
 			catch (Exception)
 			{
@@ -219,7 +262,7 @@ namespace Patcher
 				try
 				{
 					string args = "-move \"" + currentExe + "\"";
-					if (ProcessOutput.Run(m_tempNewPatcher.FullName, args, Path.GetDirectoryName(currentExe), null, true) == null)
+					if (ProcessOutput.Run(m_tempNewPatcher.FullName, args, Path.GetDirectoryName(currentExe), null, true, true) == null)
 						Log("Trouble starting new launcher version!");
 					else
 						Application.Current.Shutdown();
@@ -240,7 +283,7 @@ namespace Patcher
 			m_cache = FileHashDatabase.Load(CacheFile);
 			DirectoryScanner.ScanCompleteCallback callback =
 					(x, y) => Dispatcher.BeginInvoke(new DirectoryScanner.ScanCompleteCallback(DirectoryScanComplete), DispatcherPriority.Normal, new object[] { x, y });
-			m_scanner.BeginScan(m_installPath, callback);
+			m_scanner.BeginScan(m_installPath_DayZRP, callback);
 		}
 
 		private void DirectoryScanComplete(List<FileInfo> results, bool error)
@@ -250,6 +293,16 @@ namespace Patcher
 				Log("Something went wrong when scanning installation directory");
 				m_btnRetry.IsEnabled = true;
 				return;
+			}
+			if( results.Count == 0 )
+			{
+				MessageBoxResult r = MessageBox.Show("DayZRP is not currently installed!\nWould you like to use BitTorrent for the initial installation (faster)?", "Couldn't find existing DayZRP installation", MessageBoxButton.YesNo);
+				if (r == MessageBoxResult.Yes)
+				{
+					ProcessOutput.Run("http://www.dayzrp.com/t-dayzrp-mod-download", "", "", null, false, true);
+					m_btnRetry.IsEnabled = true;
+					return;
+				}
 			}
 
 			Debug.Assert(m_tasks == null);
@@ -291,15 +344,13 @@ namespace Patcher
 				}
 				else
 				{
-					if (m_cache.IsFileValid(name, file, patchFile.hash))
-					{
-						Log_ThreadSafe("\t Valid: " + name + ", " + stamp.ToString());
-					}
-					else
+					if (!m_cache.IsFileValid(name, file, patchFile.hash))
 					{
 						Log_ThreadSafe("\t Invalid: " + name + ", get from " + patchFile.uri.ToString());
 						m_tasks.toDownload.Add(file, patchFile.uri);
 					}
+				//	else
+				//		Log_ThreadSafe("\t Valid: " + name + ", " + stamp.ToString());
 				}
 			}
 			foreach (var patchFile in m_patch.assets)
@@ -339,7 +390,10 @@ namespace Patcher
 				m_tasks = null;
 				Log("Installation is up to date");
 				m_taskStatus.Content = "Ready to launch";
-				m_btnLaunch.IsEnabled = true;
+				m_btnLaunch1.IsEnabled = true;
+				m_btnLaunch2.IsEnabled = true;
+				m_btnRetry.IsEnabled = true;
+				m_tabs.SelectedItem = m_tabLaunch;
 			}
 		}
 
@@ -348,19 +402,19 @@ namespace Patcher
 			foreach (var file in m_tasks.toDelete)
 			{
 				file.Delete();
-				Log_ThreadSafe("Deleted " + file.FullName);
+				Log_ThreadSafe("\tDeleted " + file.FullName);
 				IncrementPatchProgressBar_ThreadSafe(false);
 			}
 			int maxConcurrentDownloads = 1;
 			List<object> downloadHandles = new List<object>();
 			foreach (var nameInfo in m_tasks.toDownload)
 			{
-				Log_ThreadSafe("Downloading " + nameInfo.Key);
+				Log_ThreadSafe("\tDownloading " + nameInfo.Key);
 				SetTaskProgressBar_ThreadSafe(0, "");
 				object handle = m_downloader.DownloadFile(nameInfo.Value, nameInfo.Key.FullName, FileDownloaded, ProgressUpdate);
 				if (handle == null)
 				{
-					Log_ThreadSafe("Failed to initiate download of " + nameInfo.Value.ToString());
+					Log_ThreadSafe("\tFailed to initiate download of " + nameInfo.Value.ToString());
 					IncrementPatchProgressBar_ThreadSafe(true);
 				}
 				else
@@ -387,15 +441,37 @@ namespace Patcher
 			IncrementPatchProgressBar_ThreadSafe(error != null);
 			if (error != null)
 			{
-				Log_ThreadSafe("Failed to download "+uri.ToString()+": "+error);
+				Log_ThreadSafe("\tFailed to download " + uri.ToString() + ": " + error);
 				return;
 			}
 		}
 		private void ProgressUpdate(long recieved, long total, int percent, DateTime startTime)
 		{
-			int seconds = (DateTime.Now - startTime).Seconds;
-			double kbps = (recieved / 1024.0) / seconds;
-			SetTaskProgressBar_ThreadSafe(percent, String.Format("{0}KiB/s", kbps));
+			double seconds = (DateTime.Now - startTime).TotalSeconds;
+			if (seconds == 0)
+			{
+				SetTaskProgressBar_ThreadSafe(percent, "");
+				return;
+			}
+			double bps = recieved / seconds;
+			string units;
+			double speed;
+			if (bps < 1024)
+			{
+				speed = bps;
+				units = "Bytes";
+			}
+			else if (bps < 1024 * 1024)
+			{
+				speed = bps / 1024;
+				units = "KB";
+			}
+			else
+			{
+				speed = (bps / 1024) / 1024;
+				units = "MB";
+			}
+			SetTaskProgressBar_ThreadSafe(percent, String.Format("{0:0.0}{1}/s", speed, units));
 		}
 
 		private void IncrementPatchProgressBar_ThreadSafe(bool error)
@@ -438,8 +514,12 @@ namespace Patcher
 			Progress2.Value = Progress2.Maximum;
 			if (m_tasks.numErrors == 0)
 			{
-				m_btnLaunch.IsEnabled = true;
+				m_btnLaunch1.IsEnabled = true;
+				m_btnLaunch2.IsEnabled = true;
+				m_btnRetry.IsEnabled = true;
+				Log("Downloads complete");
 				m_taskStatus.Content = "Ready to launch";
+				m_tabs.SelectedItem = m_tabLaunch;
 			}
 			else
 			{
@@ -474,13 +554,13 @@ namespace Patcher
 			return null;
 		}
 
-		private void Launch_Click(object sender, RoutedEventArgs e)
+		private void LaunchGame(bool joinServer)
 		{
-			if( m_game != null )
+			if (m_game != null)
 				m_game.Kill();
 			m_game = null;
-			string dir = Path.GetFullPath(m_a2oaBox.Text);
-			string a2path = Path.GetFullPath(m_a2Box.Text);
+			string dir = Path.GetFullPath(m_installPath_Arma2OA);
+			string a2path = Path.GetFullPath(m_installPath_Arma2);
 			string exe = Path.GetFullPath(Path.Combine(dir, "./Expansion/beta/ARMA2OA.exe"));
 			string args = String.Format(
 				"\"-mod={0};EXPANSION;ca\" " +
@@ -495,47 +575,161 @@ namespace Patcher
 				});
 			};
 
-			string steamExe = ReadRegString("Valve\\Steam", "SteamExe");
-			if (steamExe != null)
+			if (joinServer)
 			{
-				exe = steamExe;
-				args = "-applaunch 219540 " + args;
+				int i = 0;
+				foreach (var server in m_servers)
+				{
+					if (i != m_serverListBox.SelectedIndex)
+					{
+						++i;
+						continue;
+					}
+					args += " -connect=" + server.Value.Settings.Host + " -port=" + server.Value.Settings.RemotePort;
+					break;
+				}
 			}
 
-			m_game = ProcessOutput.Run(exe, args, dir, onExit, false);
+			if (m_steamTickBox.IsChecked == true)
+			{
+				string steamExe = ReadRegString("Valve\\Steam", "SteamExe");
+				if (steamExe != null)
+				{
+					exe = steamExe;
+					args = "-applaunch 219540 " + args;
+				}
+				else
+					MessageBox.Show("Could not locate Steam installation");
+			}
+
+			if (!String.IsNullOrEmpty(m_launchCommands.Text))
+				args = args + " " + m_launchCommands.Text;
+
+			m_game = ProcessOutput.Run(exe, args, dir, onExit, false, false);
 			if (m_game != null && !m_game.Finished)
 			{
 				m_taskStatus.Content = "Game is running...";
-				m_btnLaunch.IsEnabled = false;
+				m_btnLaunch1.IsEnabled = false;
+				m_btnLaunch2.IsEnabled = false;
 			}
 			else
 				m_taskStatus.Content = "Error launching game.";
 		}
+		private void Join_Click(object sender, RoutedEventArgs e)
+		{
+			if (m_serverListBox.SelectedIndex < 0)
+				return;
+			LaunchGame(true);
+		}
+		private void Launch_Click(object sender, RoutedEventArgs e)
+		{
+			LaunchGame(false);
+		}
 		private void OnGameExit()
 		{
 			m_taskStatus.Content = "Ready to launch";
-			m_btnLaunch.IsEnabled = true;
+			m_btnLaunch1.IsEnabled = true;
+			m_btnLaunch2.IsEnabled = true;
 		}
 
+		private void Refresh_Click(object sender, RoutedEventArgs e)
+		{
+			Action checkServers = (Action)delegate() { CheckServers(); };
+			checkServers.BeginInvoke(null, this);
+			m_btnRefresh.IsEnabled = false;
+		}
 
-		private GameServer gs = new GameServer("81.170.229.148", 2302);
+		private Dictionary<string, GameServer> m_servers = new Dictionary<string, GameServer>();
 		private void CheckServers()
 		{
-			gs.Update();
-			bool online = gs.IsOnline;
-			int numPlayers = 0;
-			int maxPlayers = 50;
-			string name = "S1";
-			if (gs.ServerInfo != null )
+			List<ServerListItem> items = new List<ServerListItem>();
+
+			foreach (var server in m_servers)
 			{
-				numPlayers = gs.ServerInfo.NumPlayers;
-				maxPlayers = gs.ServerInfo.MaxPlayers;
-				name = gs.ServerInfo.HostName;
+				string name = server.Key;
+				var gs = server.Value;
+				gs.Update();
+				bool online = gs.IsOnline;
+				int numPlayers = 0;
+				int maxPlayers = 50;
+				bool locked = false;
+				if (gs.ServerInfo != null)
+				{
+					numPlayers = gs.ServerInfo.NumPlayers;
+					maxPlayers = gs.ServerInfo.MaxPlayers;
+					name = gs.ServerInfo.HostName;
+					locked = gs.ServerInfo.Password;
+				}
+				string playerList = "";
+				if (gs.Players != null)
+				{
+					foreach (var player in gs.Players)
+					{
+						if (playerList != "")
+							playerList += "\n";
+						playerList += player.Name;
+					}
+				}
+				if (playerList == "")
+					playerList = "No players online";
+				items.Add(new ServerListItem()
+					{
+						locked = locked,
+						online = online,
+						Name = name,
+						Players = String.Format("{0} / {1}",numPlayers, maxPlayers),
+						PlayerList = playerList
+					});
 			}
 			Dispatcher.BeginInvoke((Action)delegate
 			{
-				m_serverStatus.Text = String.Format("{0} {1} {2}/{3}", name, online ? "Online" : "Offline", numPlayers, maxPlayers);
+				m_btnRefresh.IsEnabled = true;
+				int idx = m_serverListBox.SelectedIndex;
+				m_serverListBox.ItemsSource = items;
+				if (idx == -1 && Properties.Settings.Default.lastServerIdx != -1)
+					idx = Properties.Settings.Default.lastServerIdx;
+				m_serverListBox.SelectedIndex = idx;
 			});
 		}
+
+		private void ServerList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+		{
+			Properties.Settings.Default.lastServerIdx = m_serverListBox.SelectedIndex;
+			Properties.Settings.Default.Save();
+		}
+
+		private void GoToDayZRP_Rules_Click(object sender, RoutedEventArgs e)
+		{
+			ProcessOutput.Run("http://www.dayzrp.com/rules.php", "", "", null, false, true);
+		}
+		private void GoToDayZRP_Team_Click(object sender, RoutedEventArgs e)
+		{
+			ProcessOutput.Run("http://www.dayzrp.com/showteam.php", "", "", null, false, true);
+		}
+		private void GoToDayZRP_Click(object sender, RoutedEventArgs e)
+		{
+			ProcessOutput.Run("http://www.dayzrp.com/", "", "", null, false, true);
+		}
+	}
+	public class ServerListItem
+	{
+		public bool online;
+		public bool locked;
+		public string Status { get { return online ? "Online" : "Offline"; } }
+		public string ImageSource
+		{
+			get
+			{
+				if (!online)
+					return "pack://application:,,,/img/red.png";
+				else if(locked)
+					return "pack://application:,,,/img/blue.png";
+				else
+					return "pack://application:,,,/img/green.png";
+			}
+		}
+		public string Name { get; set; }
+		public string Players { get; set; }
+		public string PlayerList { get; set; }
 	}
 }

@@ -31,7 +31,7 @@ namespace util
 			}
 		}
 
-		public static ProcessOutput Run(string executable, string args, string dir, EventHandler onExit, bool runAsAdmin)
+		public static ProcessOutput Run(string executable, string args, string dir, EventHandler onExit, bool runAsAdmin, bool shellExec)
 		{
 			System.Diagnostics.Process proc = new System.Diagnostics.Process();
 			ProcessOutput output = new ProcessOutput { proc = proc };
@@ -41,6 +41,10 @@ namespace util
 			{
 				proc.StartInfo.UseShellExecute = true;
 				proc.StartInfo.Verb = "runas";
+			}
+			else if (shellExec)
+			{
+				proc.StartInfo.UseShellExecute = true;
 			}
 			else
 			{
@@ -58,7 +62,7 @@ namespace util
 			try
 			{
 				proc.Start();
-				if (!runAsAdmin)
+				if (!runAsAdmin && !shellExec)
 				{
 					proc.BeginOutputReadLine();
 					proc.BeginErrorReadLine();
