@@ -71,6 +71,7 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\Util\ProcessOutput.cs" />
     <Compile Include="..\Util\DirectoryScanner.cs" />
     <Compile Include="..\Util\Extensions.cs" />
     <Compile Include="Properties\AssemblyInfo.cs">

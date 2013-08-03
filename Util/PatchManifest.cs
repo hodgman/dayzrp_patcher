@@ -14,7 +14,7 @@ namespace util
 	{
 		public Uri launcherUri;
 		public string launcherVersion;
-		public string version;
+		public string dataDir;
 		public class AssetInfo
 		{
 			public Uri uri;
@@ -36,13 +36,13 @@ namespace util
 			string launcherUrl = xmlPatch.Attribute("launcherUrl", "");
 			if (!Uri.TryCreate(baseUri, launcherUrl, out patchInfo.launcherUri))
 				return null;
-			patchInfo.version = xmlPatch.Attribute("version", "");
+			patchInfo.dataDir = xmlPatch.Attribute("data", "");
 			XmlNodeList xmlFiles = xmlPatch.SelectNodes("file");
 			foreach (XmlNode xmlFile in xmlFiles)
 			{
 				string path = xmlFile.Attribute("path", "");
 				string hash = xmlFile.Attribute("hash", "");
-				string defaultUrl = Path.Combine(baseUrl, patchInfo.version + "/" + path);
+				string defaultUrl = Path.Combine(baseUrl, patchInfo.dataDir + "/" + path);
 				string url = xmlFile.Attribute("url", defaultUrl);
 				if (String.IsNullOrEmpty(path) || String.IsNullOrEmpty(hash) || String.IsNullOrEmpty(url))
 					return null;

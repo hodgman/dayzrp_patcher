@@ -14,6 +14,8 @@ using Forms = System.Windows.Forms;
 using System.IO;
 using System.Security.Cryptography;
 using System.Xml;
+using System.Linq;
+using System.Linq.Expressions;
 using util;
 
 namespace Manifester
@@ -26,8 +28,38 @@ namespace Manifester
 		public Window1()
 		{
 			InitializeComponent();
+
+			if (!String.IsNullOrEmpty(Properties.Settings.Default.output))
+				outputBox.Text = Properties.Settings.Default.output;
+			if (!String.IsNullOrEmpty(Properties.Settings.Default.dataDir))
+				dataDirBox.Text = Properties.Settings.Default.dataDir;
+			if (!String.IsNullOrEmpty(Properties.Settings.Default.projectPath))
+			projectPathBox.Text = Properties.Settings.Default.projectPath;
+			if (!String.IsNullOrEmpty(Properties.Settings.Default.patcherExe))
+				patcherExeBox.Text = Properties.Settings.Default.patcherExe;
+		}
+		private void projectPathBox_TextChanged(object sender, TextChangedEventArgs e)
+		{
+			Properties.Settings.Default.projectPath = projectPathBox.Text;
+			Properties.Settings.Default.Save();
+		}
+		private void dataDirBox_TextChanged(object sender, TextChangedEventArgs e)
+		{
+			Properties.Settings.Default.dataDir = dataDirBox.Text;
+			Properties.Settings.Default.Save();
+		}
+		private void patcherExeBox_TextChanged(object sender, TextChangedEventArgs e)
+		{
+			Properties.Settings.Default.patcherExe = patcherExeBox.Text;
+			Properties.Settings.Default.Save();
+		}
+		private void outputBox_TextChanged(object sender, TextChangedEventArgs e)
+		{
+			Properties.Settings.Default.output = outputBox.Text;
+			Properties.Settings.Default.Save();
 		}
 
+		private Forms.OpenFileDialog m_fileBrowser = new Forms.OpenFileDialog();
 		private Forms.FolderBrowserDialog m_folderBrowser = new Forms.FolderBrowserDialog();
 		private DirectoryScanner m_scanner = new DirectoryScanner();
 		private MD5 m_md5 = MD5.Create();
@@ -56,11 +88,24 @@ namespace Manifester
 				MessageBox.Show("Something went wrong");
 				return;
 			}
+
+			var patcher = ProcessOutput.Run(patcherExeBox.Text, "-version", "", null, false);
+			string patcherVersion = "[Fix me by hand]";
+			if (patcher != null)
+			{
+				patcher.Wait();
+				patcherVersion = patcher.stdout.Aggregate((i, j) => i + "\n" + j);
+			}
+
 			XmlDocument doc = new XmlDocument();
 			XmlElement rootNode = doc.CreateElement("patch");
-			XmlAttribute version = doc.CreateAttribute("version");
-			version.Value = versionBox.Text;
-			rootNode.Attributes.Append(version);
+			XmlAttribute dataDir = doc.CreateAttribute("data");
+			XmlAttribute launcherVersion = doc.CreateAttribute("launcherVersion");
+			XmlAttribute launcherUrl = doc.CreateAttribute("launcherUrl");
+			launcherVersion.Value = patcherVersion;
+			launcherUrl.Value = Path.GetFileName(patcherExeBox.Text);
+			dataDir.Value = dataDirBox.Text;
+			rootNode.Attributes.Append(dataDir);
 			doc.AppendChild(rootNode);
 			foreach (var file in results)
 			{
@@ -88,6 +133,16 @@ namespace Manifester
 			Uri uri = new Uri(file.FullName);
 			uri = root.MakeRelativeUri(uri);
 			return uri.ToString().ToLowerInvariant();
+		}
+
+		private void BrowseLauncher_Click(object sender, RoutedEventArgs e)
+		{
+			m_fileBrowser.InitialDirectory = Path.GetDirectoryName(patcherExeBox.Text);
+			m_fileBrowser.FileName = patcherExeBox.Text;
+			m_fileBrowser.Filter = "Executable files (*.exe)|*.exe|All files (*.*)|*.*";
+			m_fileBrowser.RestoreDirectory = true;
+			if (m_fileBrowser.ShowDialog() == Forms.DialogResult.OK)
+				patcherExeBox.Text = m_fileBrowser.FileName;
 		}
 	}
 }

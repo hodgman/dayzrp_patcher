@@ -138,7 +138,7 @@ namespace Patcher
 			}
 			else
 			{
-				Log("Retrieved manifest for version: " + m_patch.version);
+				Log("Retrieved patch manifest");
 				if (!String.IsNullOrEmpty(m_patch.launcherVersion) && m_patch.launcherVersion != LauncherVersion)
 				{
 					Log("New version of launcher available: " + m_patch.launcherVersion);
