@@ -111,6 +111,7 @@
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
+    <Resource Include="28 Days Later.ttf" />
     <None Include="app.config" />
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
@@ -123,7 +124,6 @@
   </ItemGroup>
   <ItemGroup>
     <Resource Include="img\bg.jpg" />
-    <Resource Include="img\bg4.png" />
     <Resource Include="img\logo.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

@@ -1,12 +1,28 @@
 ﻿<Window x:Class="Patcher.Window1"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="Patcher" Height="456" Width="618">
-    <Grid>
-		<Grid.Background>
-			<ImageBrush ImageSource="pack://application:,,,/img/bg.jpg" Stretch="UniformToFill"/>
-		</Grid.Background>
-		<GroupBox Header="Prototype Variables" Margin="12,4,12,0" Name="groupBox1" Height="200" VerticalAlignment="Top">
+    Title="Patcher" Height="418" Width="747"
+	AllowsTransparency="True" Background="Transparent" WindowStyle="None"
+	MouseDown="Window_MouseDown"
+	Margin="0,0,0,0" Padding="0,0,0,0"
+    ResizeMode="NoResize" 
+	>
+		<Border BorderBrush="Transparent" BorderThickness="5" Padding="0,27,0,0" Name="border1"  Background="Transparent" ClipToBounds="false">
+		<Border.BitmapEffect>
+			<DropShadowBitmapEffect Color="Black" Direction="320" ShadowDepth="1" Opacity="1" Softness="0.5" />
+		</Border.BitmapEffect>
+
+		<Grid ClipToBounds="false">
+			<TabControl HorizontalAlignment="Stretch" Margin="5,5,5,5" Name="tabControl1" VerticalAlignment="Stretch" >
+				<TabItem Name="tabItem1">
+					<TabItem.Header>
+						<TextBlock FontFamily="pack://application:,,,/#28 Days Later" FontSize="24">Update</TextBlock>
+					</TabItem.Header>
+					<Grid>
+						<Grid.Background>
+							<ImageBrush ImageSource="pack://application:,,,/img/bg.jpg" Stretch="UniformToFill"/>
+						</Grid.Background>
+						<GroupBox Header="Prototype Variables" Margin="12,4,12,0" Name="groupBox1" Height="200" VerticalAlignment="Top">
 			<Grid>
 				<TextBox Height="29" Margin="6,6,105,0" Name="m_urlBox" VerticalAlignment="Top">http://localhost/test/</TextBox>
 				<Label Height="30" Margin="0,6,21,0" Name="label1" VerticalAlignment="Top" HorizontalAlignment="Right" Width="78">Patch Server</Label>
@@ -26,5 +42,31 @@
 		<Label Height="29" Margin="12,0,12,7" Name="m_taskStatus" VerticalAlignment="Bottom"></Label>
 		<Button Margin="0,0,174,85" Name="m_btnRetry" IsEnabled="False" Click="Retry_Click" HorizontalAlignment="Right" Width="75" Height="25" VerticalAlignment="Bottom">Retry</Button>
 		<TextBlock Margin="16,0,12,116" Name="m_serverStatus" Height="23" VerticalAlignment="Bottom" />
-	</Grid>
+					</Grid>
+		</TabItem>
+				<TabItem Name="tabItem2">
+					<TabItem.Header>
+						<TextBlock FontFamily="pack://application:,,,/#28 Days Later" FontSize="24">Launch</TextBlock>
+					</TabItem.Header>
+					<Grid>
+						<Grid.Background>
+							<ImageBrush ImageSource="pack://application:,,,/img/bg.jpg" Stretch="UniformToFill"/>
+						</Grid.Background>
+					</Grid>
+				</TabItem>
+				<TabItem Name="tabItem3">
+					<TabItem.Header>
+						<TextBlock FontFamily="pack://application:,,,/#28 Days Later" FontSize="24">About</TextBlock>
+					</TabItem.Header>
+					<Grid>
+						<Grid.Background>
+							<ImageBrush ImageSource="pack://application:,,,/img/bg.jpg" Stretch="UniformToFill"/>
+						</Grid.Background>
+					</Grid>
+				</TabItem>
+			</TabControl>
+			<Image Height="90" Margin="0,-30,25,0" Name="image1" Stretch="Fill" VerticalAlignment="Top" Source="pack://application:,,,/img/logo.png" Panel.ZIndex="1000" HorizontalAlignment="Right" Width="400" />
+			<Button Margin="0,0,0,0" VerticalAlignment="Top" Panel.ZIndex="1000" HorizontalAlignment="Right" Width="25" Height="25" Click="Close_Click" FontFamily="pack://application:,,,/#28 Days Later" FontSize="24">*</Button>
+		</Grid>
+	</Border>
 </Window>

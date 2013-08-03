@@ -48,6 +48,17 @@ namespace Patcher
 			m_a2oaBox.Text = ReadRegString("Bohemia Interactive Studio\\ArmA 2 OA", "MAIN");
 		}
 
+		private void Close_Click(object sender, RoutedEventArgs e)
+		{
+			Application.Current.Shutdown();
+		}
+
+		private void Window_MouseDown(object sender, MouseButtonEventArgs e)
+		{
+			if (e.ChangedButton == MouseButton.Left)
+				this.DragMove();
+		}
+
 		private string LauncherVersion { get { return App.LauncherVersion; } }
 
 		private System.Timers.Timer m_timer;
