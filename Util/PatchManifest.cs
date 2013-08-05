@@ -15,6 +15,12 @@ namespace util
 		public Uri launcherUri;
 		public string launcherVersion;
 		public string dataDir;
+		public class ServerInfo
+		{
+			public string name, host;
+			public int port;
+		}
+		public List<ServerInfo> servers = null;
 		public class AssetInfo
 		{
 			public Uri uri;
@@ -31,7 +37,7 @@ namespace util
 		{
 			Uri baseUri = new Uri(baseUrl);
 			PatchManifest patchInfo = new PatchManifest();
-			XmlNode xmlPatch = doc.SelectSingleNode("patch");
+			XmlNode xmlPatch = doc.SelectSingleNode("patch|dayzrp/patch");
 			patchInfo.launcherVersion = xmlPatch.Attribute("launcherVersion", "");
 			string launcherUrl = xmlPatch.Attribute("launcherUrl", "");
 			if (!Uri.TryCreate(baseUri, launcherUrl, out patchInfo.launcherUri))
@@ -55,6 +61,28 @@ namespace util
 					hash = hash.HexToBytes()
 				};
 				patchInfo.assets.Add(path.ToLowerInvariant(), asset);
+			}
+			XmlNode xmlServers = doc.SelectSingleNode("servers|dayzrp/servers");
+			if (xmlServers != null)
+			{
+				patchInfo.servers = new List<ServerInfo>();
+				XmlNodeList xmlServerList = xmlServers.SelectNodes("server");
+				foreach (XmlNode xmlServer in xmlServerList)
+				{
+					string host = xmlServer.Attribute("host", "");
+					if(String.IsNullOrEmpty(host))
+						continue;
+					string name = xmlServer.Attribute("name", host);
+					string port = xmlServer.Attribute("port", "2302");
+					int intPort = 2302;
+					int.TryParse(port, out intPort);
+					patchInfo.servers.Add(new ServerInfo
+						{
+							name = name,
+							host = host,
+							port = intPort
+						});
+				}
 			}
 			return patchInfo;
 		}

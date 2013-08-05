@@ -5,6 +5,7 @@
     Title="Patcher" Height="418" Width="747"
 	AllowsTransparency="True" Background="Transparent" WindowStyle="None"
 	MouseDown="Window_MouseDown"
+	TextInput="Window_TextInput"
 	Margin="0,0,0,0" Padding="0,0,0,0"
     ResizeMode="NoResize" 
 	>
@@ -15,7 +16,7 @@
 
 		<Grid ClipToBounds="false">
 			<TabControl HorizontalAlignment="Stretch" Margin="5,5,5,5" Name="m_tabs" VerticalAlignment="Stretch" >
-				<TabItem Name="tabItem1">
+				<TabItem Name="m_tabUpdate">
 					<TabItem.Header>
 						<TextBlock FontFamily="pack://application:,,,/#28 Days Later" FontSize="30">Update</TextBlock>
 					</TabItem.Header>
@@ -27,7 +28,7 @@
 						<ProgressBar Height="18" Margin="12,0,12,43" Name="Progress2" VerticalAlignment="Bottom" />
 						<ProgressBar Margin="12,0,12,67" Name="Progress1" Height="18" VerticalAlignment="Bottom" />
 						<Label Height="25" Margin="93,0,12,6" Name="m_taskStatus" VerticalAlignment="Bottom" FontSize="18"/>
-						<Button Margin="12,0,0,12" Name="m_btnRetry" IsEnabled="False" Click="Retry_Click" HorizontalAlignment="Left" Width="75" Height="25" VerticalAlignment="Bottom">Retry</Button>
+						<Button Margin="12,0,0,12" Name="m_btnRetry" IsEnabled="False" Click="Retry_Click" HorizontalAlignment="Left" Width="75" Height="25" VerticalAlignment="Bottom" FontFamily="pack://application:,,,/#28 Days Later" FontSize="18">Retry</Button>
 					</Grid>
 				</TabItem>
 				<TabItem Name="m_tabLaunch">
@@ -39,11 +40,16 @@
 							<ImageBrush ImageSource="pack://application:,,,/img/bg.jpg" Stretch="UniformToFill"/>
 						</Grid.Background>
 
-						<Button Margin="14,0,0,14" Name="m_btnLaunch1" Click="Join_Click" IsEnabled="False" Height="25" VerticalAlignment="Bottom" HorizontalAlignment="Left" Width="85">Join Server</Button>
-						<Button Margin="105,0,0,14" Name="m_btnLaunch2" Click="Launch_Click" IsEnabled="False" Height="25" VerticalAlignment="Bottom" HorizontalAlignment="Left" Width="113">Launch to Menu</Button>
-						<Button Margin="6,0,0,109" Name="m_btnRefresh" Click="Refresh_Click" IsEnabled="False" Height="25" VerticalAlignment="Bottom" HorizontalAlignment="Left" Width="113">Refresh</Button>
+						<Button Margin="14,0,0,14" Name="m_btnLaunch1" Click="Join_Click" Height="42" VerticalAlignment="Bottom" HorizontalAlignment="Left" Width="130"  FontFamily="pack://application:,,,/#28 Days Later" FontSize="24">Join Server</Button>
+						<Button Margin="150,0,0,14" Name="m_btnLaunch2" Click="Launch_Click" Height="42" VerticalAlignment="Bottom" HorizontalAlignment="Left" Width="193"  FontFamily="pack://application:,,,/#28 Days Later" FontSize="24">Launch to Menu</Button>
+						<Button Margin="6,0,0,109" Name="m_btnRefresh" Click="Refresh_Click" Height="25" VerticalAlignment="Bottom" HorizontalAlignment="Left" Width="113"  FontFamily="pack://application:,,,/#28 Days Later" FontSize="18">Refresh</Button>
 						<ListBox Margin="6,6,6,140" Name="m_serverListBox" SelectionMode="Extended" SelectionChanged="ServerList_SelectionChanged" HorizontalContentAlignment="Stretch" 
 								 Background="Black" BorderBrush="Transparent" Foreground="Black" Opacity="0.75" ClipToBounds="False">
+							<ListBox.ItemContainerStyle>
+								<Style TargetType="{x:Type ListBoxItem}" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+									<EventSetter Event="MouseDoubleClick" Handler="ServerList_MouseDoubleClick"/>
+								</Style>
+							</ListBox.ItemContainerStyle>
 							<ListBox.ItemTemplate>
 								<DataTemplate>
 									<Grid>
@@ -67,33 +73,39 @@
 								</DataTemplate>
 							</ListBox.ItemTemplate>
 						</ListBox>
-						<Label FontSize="20" Height="28" HorizontalAlignment="Left" Margin="14,0,0,79" Name="label5" VerticalAlignment="Bottom" Width="248" HorizontalContentAlignment="Right">Custom Launch Commands</Label>
-						<Label FontSize="20" Height="28" HorizontalAlignment="Left" Margin="14,0,0,45" Name="label6" VerticalAlignment="Bottom" Width="248" HorizontalContentAlignment="Right">Enable Steam Overlay</Label>
-						<TextBox Height="28" Margin="268,0,18,79" Name="m_launchCommands" VerticalAlignment="Bottom" TextChanged="LaunchCommands_TextChanged" Opacity="0.75" />
-						<CheckBox Name="m_steamTickBox" VerticalAlignment="Bottom" Height="16" Margin="268,0,0,49" HorizontalAlignment="Left" Width="21" Checked="SteamTickBox_Changed" Unchecked="SteamTickBox_Changed" />
+						<Label FontSize="20" Height="28" HorizontalAlignment="Left" Margin="14,0,0,84" Name="label5" VerticalAlignment="Bottom" Width="248" HorizontalContentAlignment="Right">Custom Launch Commands</Label>
+						<Label FontSize="20" Height="28" HorizontalAlignment="Left" Margin="14,0,0,56" Name="label6" VerticalAlignment="Bottom" Width="248" HorizontalContentAlignment="Right">Enable Steam Overlay</Label>
+						<TextBox Height="28" Margin="268,0,18,84" Name="m_launchCommands" VerticalAlignment="Bottom" TextChanged="LaunchCommands_TextChanged" Opacity="0.75" />
+						<CheckBox Name="m_steamTickBox" VerticalAlignment="Bottom" Height="16" Margin="268,0,0,60" HorizontalAlignment="Left" Width="21" Checked="SteamTickBox_Changed" Unchecked="SteamTickBox_Changed" />
+						<Button Height="42" HorizontalAlignment="Right" Margin="0,0,14,14" VerticalAlignment="Bottom" Width="179"  FontFamily="pack://application:,,,/#28 Days Later" FontSize="24" Click="LaunchTeamSpeak_Click">Join TeamSpeak</Button>
+						<Button Height="42" Margin="0,0,199,14" VerticalAlignment="Bottom" FontFamily="pack://application:,,,/#28 Days Later" FontSize="24" Click="LaunchIrc_Click" HorizontalAlignment="Right" Width="96">Join IRC</Button>
 					</Grid>
 				</TabItem>
-				<TabItem Name="tabItem3">
+				<TabItem Name="m_tabAbout">
 					<TabItem.Header>
 						<TextBlock FontFamily="pack://application:,,,/#28 Days Later" FontSize="30">About</TextBlock>
 					</TabItem.Header>
 					<Grid>
+						<Grid.ColumnDefinitions>
+							<ColumnDefinition Width="188*" />
+							<ColumnDefinition Width="517*" />
+						</Grid.ColumnDefinitions>
 						<Grid.Background>
 							<ImageBrush ImageSource="pack://application:,,,/img/bg.jpg" Stretch="UniformToFill"/>
 						</Grid.Background>
-						<TextBlock Margin="6,6,6,0" Name="m_versionText" Foreground="White" FontFamily="pack://application:,,,/#28 Days Later" FontSize="32" VerticalAlignment="Top">
+						<TextBlock Margin="6,6,6,0" Name="m_versionText" Foreground="White" FontFamily="pack://application:,,,/#28 Days Later" FontSize="32" VerticalAlignment="Top" Grid.ColumnSpan="2" Height="38.4">
 							DayZRP launcher version
 						</TextBlock>
-						<TextBlock Margin="6,50,6,0" Foreground="White" FontFamily="pack://application:,,,/#28 Days Later" FontSize="28" VerticalAlignment="Top">
+						<TextBlock Margin="6,50,6,0" Foreground="White" FontFamily="pack://application:,,,/#28 Days Later" FontSize="28" VerticalAlignment="Top" Grid.ColumnSpan="2" Height="33.6">
 							Launcher created by ActionMan
 						</TextBlock>
-						<TextBlock Margin="6,90,6,0" Foreground="White" FontFamily="pack://application:,,,/#28 Days Later" FontSize="22" VerticalAlignment="Top" Height="26.4">
+						<TextBlock Margin="6,90,6,0" Foreground="White" FontFamily="pack://application:,,,/#28 Days Later" FontSize="22" VerticalAlignment="Top" Height="26.4" Grid.ColumnSpan="2">
 							Contains ArmaServerInfos by PulsarBlow
 						</TextBlock>
-						<Button Height="42" Margin="17,0,0,17" VerticalAlignment="Bottom" FontFamily="pack://application:,,,/#28 Days Later" FontSize="24" Click="GoToDayZRP_Click" HorizontalAlignment="Left" Width="205">Go to DayZRP.com</Button>
-						<Button Height="42" Margin="250,0,250,17" VerticalAlignment="Bottom" FontFamily="pack://application:,,,/#28 Days Later" FontSize="24" Click="GoToDayZRP_Team_Click">View DayZRP Team</Button>
-						<Button Height="42" Margin="0,0,17,17" VerticalAlignment="Bottom" FontFamily="pack://application:,,,/#28 Days Later" FontSize="24" Click="GoToDayZRP_Rules_Click" HorizontalAlignment="Right" Width="205">View DayZRP Rules</Button>
-						<GroupBox Header="Development Options" Margin="22,122,20,69">
+						<Button Height="42" Margin="14,0,0,14" VerticalAlignment="Bottom" FontFamily="pack://application:,,,/#28 Days Later" FontSize="24" Click="GoToDayZRP_Click" HorizontalAlignment="Left" Width="205" Grid.ColumnSpan="2">Go to DayZRP.com</Button>
+						<Button Height="42" Margin="62,0,250,14" VerticalAlignment="Bottom" FontFamily="pack://application:,,,/#28 Days Later" FontSize="24" Click="GoToDayZRP_Team_Click" Grid.Column="1">View DayZRP Team</Button>
+						<Button Height="42" Margin="0,0,14,14" VerticalAlignment="Bottom" FontFamily="pack://application:,,,/#28 Days Later" FontSize="24" Click="GoToDayZRP_Rules_Click" HorizontalAlignment="Right" Width="205" Grid.Column="1">View DayZRP Rules</Button>
+						<GroupBox Name="m_devOptions" Header="Development Options" Margin="22,122,20,69" Grid.ColumnSpan="2">
 							<Grid>
 								<Label HorizontalAlignment="Left" Margin="6,6,0,0" Width="70" Height="22" VerticalAlignment="Top">Patch Server:</Label>
 								<TextBox Margin="82,6,6,0" Name="m_patchServerBox" Height="23.04" VerticalAlignment="Top" TextChanged="m_patchServerBox_TextChanged" />
@@ -101,6 +113,11 @@
 								<TextBox Margin="82,35,6,0" Name="m_xmlUrlBox" Height="23.04" VerticalAlignment="Top" Background="Black" Foreground="White" FontWeight="Bold" IsReadOnly="True" />
 							</Grid>
 						</GroupBox>
+						<Image HorizontalAlignment="Right" Margin="0,6,6,0" Name="m_badgeImg" Stretch="Fill" Width="128" Height="128" Source="/Patcher;component/img/badge.png" Panel.ZIndex="100" IsHitTestVisible="False" VerticalAlignment="Top" Visibility="Hidden" Grid.Column="1">
+							<Image.BindingGroup>
+								<BindingGroup Name="{x:Null}" NotifyOnValidationError="False" />
+							</Image.BindingGroup>
+						</Image>
 					</Grid>
 				</TabItem>
 			</TabControl>

@@ -98,17 +98,26 @@ namespace Manifester
 			}
 
 			XmlDocument doc = new XmlDocument();
-			XmlElement rootNode = doc.CreateElement("patch");
+			XmlElement rootNode = doc.CreateElement("dayzrp");
+			XmlElement serversNode = doc.CreateElement("servers");
+			XmlElement patchNode = doc.CreateElement("patch");
 			XmlAttribute dataDir = doc.CreateAttribute("data");
 			XmlAttribute launcherVersion = doc.CreateAttribute("launcherVersion");
 			XmlAttribute launcherUrl = doc.CreateAttribute("launcherUrl");
 			launcherVersion.Value = patcherVersion;
 			launcherUrl.Value = Path.GetFileName(patcherExeBox.Text);
 			dataDir.Value = dataDirBox.Text;
-			rootNode.Attributes.Append(dataDir);
-			rootNode.Attributes.Append(launcherUrl);
-			rootNode.Attributes.Append(launcherVersion);
+			patchNode.Attributes.Append(dataDir);
+			patchNode.Attributes.Append(launcherUrl);
+			patchNode.Attributes.Append(launcherVersion);
+
+			XmlComment comment = doc.CreateComment("<server name='RP1 : S1' host='81.170.227.227' port='2302'/>");
+			serversNode.AppendChild(comment);
+
+			rootNode.AppendChild(serversNode);
+			rootNode.AppendChild(patchNode);
 			doc.AppendChild(rootNode);
+
 			foreach (var file in results)
 			{
 				XmlElement fileNode = doc.CreateElement("file");
@@ -125,7 +134,7 @@ namespace Manifester
 				hash.Value = hashValue;
 				fileNode.Attributes.Append(path);
 				fileNode.Attributes.Append(hash);
-				rootNode.AppendChild(fileNode);
+				patchNode.AppendChild(fileNode);
 			}
 			doc.Save(outputBox.Text);
 		}

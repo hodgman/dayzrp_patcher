@@ -37,16 +37,17 @@ namespace Patcher
 		{
 			InitializeComponent();
 
+			m_devOptions.Visibility = Visibility.Hidden;
+
 			m_versionText.Text = m_versionText.Text + " " + App.LauncherVersion;
 
 			m_steamTickBox.IsChecked = Properties.Settings.Default.useSteam;
 			m_launchCommands.Text = Properties.Settings.Default.launchArgs;
 
-			m_servers.Add("RP1 : S1", new GameServer("81.170.227.227", 2302));
-			m_servers.Add("RP1 : S2", new GameServer("81.170.229.148", 2302));
 			m_serverListBox.ItemsSource = new List<ServerListItem>();
 
-			Refresh_Click(null, null);
+			m_servers.Add("RP1 : S1", new GameServer("81.170.227.227", 2302));
+			m_servers.Add("RP1 : S2", new GameServer("81.170.229.148", 2302));
 
 			m_installPath_Arma2 = ReadRegString("Bohemia Interactive Studio\\ArmA 2", "MAIN");
 			m_installPath_Arma2OA = ReadRegString("Bohemia Interactive Studio\\ArmA 2 OA", "MAIN");
@@ -62,7 +63,8 @@ namespace Patcher
 			}
 			m_installPath_DayZRP = Path.Combine(m_installPath_Arma2OA, "./@DayZRP");
 
-			m_baseUrl = "http://localhost/test/";
+			m_baseUrl = "http://launcher.dayzrp.com/";
+		//	m_baseUrl = "http://localhost/test/";
 			m_manifestUri = new Uri(Path.Combine(m_baseUrl, "current.xml"));
 			m_patch = null;
 			m_patchServerBox.Text = m_baseUrl;
@@ -71,9 +73,13 @@ namespace Patcher
 
 		private void m_patchServerBox_TextChanged(object sender, TextChangedEventArgs e)
 		{
-			m_baseUrl = m_patchServerBox.Text;
 			try
 			{
+				string url = m_patchServerBox.Text;
+				if (!url.EndsWith("/"))
+					url += "/";
+				Uri baseUri = new Uri(url);
+				m_baseUrl = baseUri.AbsoluteUri;
 				m_manifestUri = null;
 				m_manifestUri = new Uri(Path.Combine(m_baseUrl, "current.xml"));
 			}
@@ -102,6 +108,38 @@ namespace Patcher
 		{
 			if (e.ChangedButton == MouseButton.Left)
 				this.DragMove();
+		}
+
+		private string m_easter = "";
+		void Window_TextInput(object sender, TextCompositionEventArgs e)
+		{
+			string text = e.Text;
+			if (text == "\b")
+				m_easter = "";
+			else
+				m_easter += text;
+
+			if (m_easter == "devmode")
+			{
+				m_devOptions.Visibility = Visibility.Visible;
+				m_tabs.SelectedItem = m_tabAbout;
+			}
+			else if (m_easter == "justice")
+			{
+				m_badgeImg.Visibility = Visibility.Visible;
+				m_tabs.SelectedItem = m_tabAbout;
+			}
+			else if (m_easter == "nofunallowed")
+				ProcessOutput.Run("http://www.youtube.com/watch?v=HPSBzs8a3NY", "", "", null, false, true);
+			else if (m_easter == "tir5")
+			{
+				string tirDir = ReadRegString("NaturalPoint\\NaturalPoint\\NPClient Location", "Path");
+				if(!String.IsNullOrEmpty(tirDir))
+					ProcessOutput.Run(Path.Combine(tirDir, "TrackIR5.exe"), "", tirDir, null, false, false);
+			}
+			else
+				return;
+			m_easter = "";
 		}
 
 		private string LauncherVersion { get { return App.LauncherVersion; } }
@@ -145,11 +183,28 @@ namespace Patcher
 			Begin();
 		}
 
+		private bool m_isInstallValid = false;
+		private void SetIsPatching()
+		{
+			SetIsPatching(true, false);
+		}
+		private void SetIsPatching(bool inProgress, bool validResult)
+		{
+			if (inProgress)
+			{
+				m_isInstallValid = false;
+				m_btnRetry.IsEnabled = false;
+			}
+			else
+			{
+				m_isInstallValid = validResult;
+				m_btnRetry.IsEnabled = true;
+			}
+		}
+
 		private void Begin()
 		{
-			m_btnLaunch1.IsEnabled = false;
-			m_btnLaunch2.IsEnabled = false;
-			m_btnRetry.IsEnabled = false;
+			SetIsPatching();
 			display.Items.Clear();
 			Log("Contacting patch server");
 		//	if (m_patch == null)
@@ -160,25 +215,38 @@ namespace Patcher
 
 		private void PatchManifestDownloaded(Uri uri, byte[] raw, string error)
 		{
+			bool guessValid = false;
+			try
+			{
+				DirectoryInfo dir = new DirectoryInfo(m_installPath_DayZRP);
+				guessValid = dir.Exists;
+			}
+			catch (Exception) { }
 			if (error != null)
 			{
 				Log("Failed contacting patch server: " + error);
-				m_btnRetry.IsEnabled = true;
+				SetIsPatching(false, guessValid);
+				RefreshServerList();
+				m_tabs.SelectedItem = m_tabLaunch;
 				return;
 			}
 			Debug.Assert(uri == m_manifestUri);
 			XmlDocument doc = new XmlDocument();
 			MemoryStream stream = new MemoryStream(raw);
+			string exText = null;
 			try
 			{
 				doc.Load(stream);
 				m_patch = PatchManifest.Parse(doc, m_baseUrl);
 			}
-			catch (Exception) { }
+			catch (Exception e) { exText = e.ToString(); }
 			if (m_patch == null)
 			{
 				Log("Failed to parse XML document");
-				m_btnRetry.IsEnabled = true;
+				if (exText != null)
+					Log("\t" + exText);
+				SetIsPatching(false, guessValid);
+				RefreshServerList();
 				return;
 			}
 			else
@@ -187,25 +255,38 @@ namespace Patcher
 				if (!String.IsNullOrEmpty(m_patch.launcherVersion) && m_patch.launcherVersion != LauncherVersion)
 				{
 					Log("New version of launcher available: " + m_patch.launcherVersion);
-					StartLauncherDownload();
-					return;
+					MessageBoxResult r = MessageBox.Show("New version of launcher available: " + m_patch.launcherVersion+"\nWould you like to update now?", "Launcher out of date!", MessageBoxButton.YesNo);
+					if (r == MessageBoxResult.Yes)
+					{
+						StartLauncherDownload();
+						return;
+					}
 				}
 			//	else foreach (var a in m_patch.assets)
 			//		Log("\tFile: " + a.Key + ", " + StringExtension.ToHexString(a.Value.hash) + ", " + a.Value.uri.ToString());
+
+				if (m_patch.servers != null && m_patch.servers.Count > 0)
+				{
+					Dictionary<string, GameServer> servers = new Dictionary<string, GameServer>();
+					foreach(var server in m_patch.servers)
+						servers.Add(server.name, new GameServer(server.host, server.port));
+					m_servers = servers;
+				}
+				RefreshServerList();
 			}
 
-			DirectoryInfo dir = null;
 			try
 			{
-				dir = new DirectoryInfo(m_installPath_DayZRP);
+				DirectoryInfo dir = new DirectoryInfo(m_installPath_DayZRP);
 				if (!dir.Exists)
 				{
 					dir.Create();
+					Log("Installation directory is not valid");
 					MessageBoxResult r = MessageBox.Show("DayZRP is not currently installed!\nWould you like to use BitTorrent for the initial installation (faster)?", "Couldn't find existing DayZRP installation", MessageBoxButton.YesNo);
 					if (r == MessageBoxResult.Yes)
 					{
 						ProcessOutput.Run("http://www.dayzrp.com/t-dayzrp-mod-download", "", "", null, false, true);
-						m_btnRetry.IsEnabled = true;
+						SetIsPatching(false, false);
 						return;
 					}
 				}
@@ -213,7 +294,7 @@ namespace Patcher
 			catch (Exception)
 			{
 				Log("Installation directory is not valid");
-				m_btnRetry.IsEnabled = true;
+				SetIsPatching(false, false);
 				return;
 			}
 
@@ -272,7 +353,7 @@ namespace Patcher
 					Log("Trouble restarting new launcher version!");
 				}
 			}
-			m_btnRetry.IsEnabled = true;
+			SetIsPatching(false, false);
 			m_tasks = null;
 			m_tempNewPatcher = null;
 		}
@@ -291,7 +372,7 @@ namespace Patcher
 			if (error)
 			{
 				Log("Something went wrong when scanning installation directory");
-				m_btnRetry.IsEnabled = true;
+				SetIsPatching(false, false);
 				return;
 			}
 			if( results.Count == 0 )
@@ -300,7 +381,7 @@ namespace Patcher
 				if (r == MessageBoxResult.Yes)
 				{
 					ProcessOutput.Run("http://www.dayzrp.com/t-dayzrp-mod-download", "", "", null, false, true);
-					m_btnRetry.IsEnabled = true;
+					SetIsPatching(false, false);
 					return;
 				}
 			}
@@ -390,9 +471,7 @@ namespace Patcher
 				m_tasks = null;
 				Log("Installation is up to date");
 				m_taskStatus.Content = "Ready to launch";
-				m_btnLaunch1.IsEnabled = true;
-				m_btnLaunch2.IsEnabled = true;
-				m_btnRetry.IsEnabled = true;
+				SetIsPatching(false, true);
 				m_tabs.SelectedItem = m_tabLaunch;
 			}
 		}
@@ -514,16 +593,14 @@ namespace Patcher
 			Progress2.Value = Progress2.Maximum;
 			if (m_tasks.numErrors == 0)
 			{
-				m_btnLaunch1.IsEnabled = true;
-				m_btnLaunch2.IsEnabled = true;
-				m_btnRetry.IsEnabled = true;
+				SetIsPatching(false, true);
 				Log("Downloads complete");
 				m_taskStatus.Content = "Ready to launch";
 				m_tabs.SelectedItem = m_tabLaunch;
 			}
 			else
 			{
-				m_btnRetry.IsEnabled = true;
+				SetIsPatching(false, false);
 				m_taskStatus.Content = String.Format("There were {0} errors while attempting to update", m_tasks.numErrors);
 			}
 			m_tasks = null;
@@ -556,6 +633,12 @@ namespace Patcher
 
 		private void LaunchGame(bool joinServer)
 		{
+			if (m_isInstallValid == false)
+			{
+				MessageBoxResult r = MessageBox.Show("Install is not complete, launch anyway?", "Install not validated", MessageBoxButton.OKCancel);
+				if (r == MessageBoxResult.Cancel)
+					return;
+			}
 			if (m_game != null)
 				m_game.Kill();
 			m_game = null;
@@ -634,20 +717,28 @@ namespace Patcher
 
 		private void Refresh_Click(object sender, RoutedEventArgs e)
 		{
-			Action checkServers = (Action)delegate() { CheckServers(); };
-			checkServers.BeginInvoke(null, this);
-			m_btnRefresh.IsEnabled = false;
+			RefreshServerList();
+		}
+		private void RefreshServerList()
+		{
+			if (m_btnRefresh.IsEnabled == true)
+			{
+				m_btnRefresh.IsEnabled = false;
+				Action checkServers = (Action)delegate() { CheckServers(m_servers); };
+				checkServers.BeginInvoke(null, this);
+			}
 		}
 
 		private Dictionary<string, GameServer> m_servers = new Dictionary<string, GameServer>();
-		private void CheckServers()
+		private void CheckServers(Dictionary<string, GameServer> servers)
 		{
 			List<ServerListItem> items = new List<ServerListItem>();
 
-			foreach (var server in m_servers)
+			foreach (var server in servers)
 			{
 				string name = server.Key;
 				var gs = server.Value;
+				gs.Settings.ReceiveTimeout = 1000;
 				gs.Update();
 				bool online = gs.IsOnline;
 				int numPlayers = 0;
@@ -698,6 +789,13 @@ namespace Patcher
 			Properties.Settings.Default.Save();
 		}
 
+		void ServerList_MouseDoubleClick(object sender, MouseEventArgs e)
+		{
+			if (m_serverListBox.SelectedIndex < 0)
+				return;
+			LaunchGame(true);
+		}
+
 		private void GoToDayZRP_Rules_Click(object sender, RoutedEventArgs e)
 		{
 			ProcessOutput.Run("http://www.dayzrp.com/rules.php", "", "", null, false, true);
@@ -710,12 +808,21 @@ namespace Patcher
 		{
 			ProcessOutput.Run("http://www.dayzrp.com/", "", "", null, false, true);
 		}
+
+		private void LaunchTeamSpeak_Click(object sender, RoutedEventArgs e)
+		{
+			ProcessOutput.Run("ts3server://ts.dayzrp.com?port=9987&password=dayzrp", "", "", null, false, true);
+		}
+		private void LaunchIrc_Click(object sender, RoutedEventArgs e)
+		{
+			ProcessOutput.Run("http://webchat.quakenet.org/?channels=DayZRP&uio=Mj10cnVlJjQ9dHJ1ZSY5PXRydWUmMTA9dHJ1ZSYxMT0yMTUe9", "", "", null, false, true);
+		}
 	}
 	public class ServerListItem
 	{
 		public bool online;
 		public bool locked;
-		public string Status { get { return online ? "Online" : "Offline"; } }
+		public string Status { get { return !online ? "Offline" : locked ? "Locked" : "Online"; } }
 		public string ImageSource
 		{
 			get
