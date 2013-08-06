@@ -44,10 +44,24 @@ namespace Patcher
 			m_steamTickBox.IsChecked = Properties.Settings.Default.useSteam;
 			m_launchCommands.Text = Properties.Settings.Default.launchArgs;
 
-			m_serverListBox.ItemsSource = new List<ServerListItem>();
-
 			m_servers.Add("RP1 : S1", new GameServer("81.170.227.227", 2302));
 			m_servers.Add("RP1 : S2", new GameServer("81.170.229.148", 2302));
+
+			List<ServerListItem> initialServerList = new List<ServerListItem>();
+			foreach (var server in m_servers)
+			{
+				initialServerList.Add(new ServerListItem()
+				{
+					locked = true,
+					online = true,
+					Name = server.Key,
+					Players = "? / ?",
+					PlayerList = "Refreshing..."
+				});
+			}
+			m_serverListBox.ItemsSource = initialServerList;
+			if (Properties.Settings.Default.lastServerIdx >= 0 && Properties.Settings.Default.lastServerIdx < initialServerList.Count)
+				m_serverListBox.SelectedIndex = Properties.Settings.Default.lastServerIdx;
 
 			m_installPath_Arma2 = ReadRegString("Bohemia Interactive Studio\\ArmA 2", "MAIN");
 			m_installPath_Arma2OA = ReadRegString("Bohemia Interactive Studio\\ArmA 2 OA", "MAIN");
@@ -791,9 +805,12 @@ namespace Patcher
 
 		void ServerList_MouseDoubleClick(object sender, MouseEventArgs e)
 		{
-			if (m_serverListBox.SelectedIndex < 0)
-				return;
-			LaunchGame(true);
+			if (e.LeftButton == MouseButtonState.Pressed)
+			{
+				if (m_serverListBox.SelectedIndex < 0)
+					return;
+				//LaunchGame(true);
+			}
 		}
 
 		private void GoToDayZRP_Rules_Click(object sender, RoutedEventArgs e)

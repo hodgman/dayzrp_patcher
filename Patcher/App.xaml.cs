@@ -21,7 +21,7 @@ namespace Patcher
 	/// </summary>
 	public partial class App : Application
 	{
-		public static string LauncherVersion { get { return "1.0c"; } }
+		public static string LauncherVersion { get { return "1.0d"; } }
 
 		protected override void OnStartup(StartupEventArgs e)
 		{
