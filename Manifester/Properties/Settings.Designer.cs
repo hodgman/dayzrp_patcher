@@ -70,5 +70,17 @@ namespace Manifester.Properties {
                 this["patcherExe"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string destPath {
+            get {
+                return ((string)(this["destPath"]));
+            }
+            set {
+                this["destPath"] = value;
+            }
+        }
     }
 }

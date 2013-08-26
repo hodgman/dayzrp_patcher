@@ -14,7 +14,7 @@ namespace util
 {
 	public class Downloader
 	{
-		public delegate void DownloadCompleteDelegate(Uri uri, byte[] data, string error);
+		public delegate void DownloadCompleteDelegate(Uri uri, byte[] data, string error, object userData);
 		public delegate void ProgressChangedDelegate(long recieved, long total, int progress, DateTime startTime);
 		public void CancelDownload(object userHandle)
 		{
@@ -28,10 +28,10 @@ namespace util
 			Handle handle = (Handle)userHandle;
 			return handle.complete;
 		}
-		public object DownloadBytes(Uri uri, DownloadCompleteDelegate onComplete)
+		public object DownloadBytes(Uri uri, DownloadCompleteDelegate onComplete, object userData)
 		{
 			WebClient client = GetIdleClient();
-			Handle handle = new Handle(uri, client, onComplete, null);
+			Handle handle = new Handle(uri, client, onComplete, null, userData);
 			try
 			{
 				client.DownloadDataAsync(uri, handle);
@@ -44,10 +44,10 @@ namespace util
 			}
 			return handle;
 		}
-		public object DownloadFile(Uri uri, string fileName, DownloadCompleteDelegate onComplete, ProgressChangedDelegate onProgressChanged)
+		public object DownloadFile(Uri uri, string fileName, DownloadCompleteDelegate onComplete, ProgressChangedDelegate onProgressChanged, object userData)
 		{
 			WebClient client = GetIdleClient();
-			Handle handle = new Handle(uri, client, onComplete, onProgressChanged);
+			Handle handle = new Handle(uri, client, onComplete, onProgressChanged, userData);
 			try
 			{
 				FileInfo file = new FileInfo(fileName);
@@ -93,10 +93,10 @@ namespace util
 			m_idleClients.Add(handle.client);
 			if (e.Cancelled || e.Error != null)
 			{
-				handle.onComplete(handle.uri, null, ErrorMessage(e));
+				handle.onComplete(handle.uri, null, ErrorMessage(e), handle.userData);
 			}
 			else
-				handle.onComplete(handle.uri, null, null);
+				handle.onComplete(handle.uri, null, null, handle.userData);
 		}
 		private void DownloadDataCompleted(object sender, DownloadDataCompletedEventArgs e)
 		{
@@ -105,9 +105,9 @@ namespace util
 			handle.complete = true;
 			m_idleClients.Add(handle.client);
 			if (e.Cancelled || e.Error != null)
-				handle.onComplete(handle.uri, null, ErrorMessage(e));
+				handle.onComplete(handle.uri, null, ErrorMessage(e), handle.userData);
 			else
-				handle.onComplete(handle.uri, e.Result, null);
+				handle.onComplete(handle.uri, e.Result, null, handle.userData);
 		}
 
 		private WebClient GetIdleClient()
@@ -131,7 +131,7 @@ namespace util
 
 		private class Handle
 		{
-			public Handle(Uri uri, WebClient client, DownloadCompleteDelegate onComplete, ProgressChangedDelegate onProgressChanged)
+			public Handle(Uri uri, WebClient client, DownloadCompleteDelegate onComplete, ProgressChangedDelegate onProgressChanged, object userData)
 			{
 				this.startTime = DateTime.Now;
 				this.uri = uri;
@@ -139,6 +139,7 @@ namespace util
 				this.onComplete = onComplete;
 				this.onProgressChanged = onProgressChanged;
 				this.complete = false;
+				this.userData = userData;
 			}
 			public readonly DateTime startTime;
 			public readonly Uri uri;
@@ -146,6 +147,7 @@ namespace util
 			public readonly DownloadCompleteDelegate onComplete;
 			public readonly ProgressChangedDelegate onProgressChanged;
 			public bool complete;
+			public readonly object userData;
 		}
 
 		private List<WebClient> m_idleClients = new List<WebClient>();

@@ -22,6 +22,8 @@ using util;
 using ArmaServerInfo;
 using System.Timers;
 using Microsoft.Win32;
+using SevenZip;
+using LZMA = SevenZip.Compression.LZMA;
 
 namespace Patcher
 {
@@ -30,6 +32,7 @@ namespace Patcher
 	/// </summary>
 	public partial class Window1 : Window
 	{
+		private string ManifestName { get { return "DayZRP.xml"; } }
 		private string m_installPath_Arma2;
 		private string m_installPath_Arma2OA;
 		private string m_installPath_DayZRP;
@@ -44,6 +47,7 @@ namespace Patcher
 			m_steamTickBox.IsChecked = Properties.Settings.Default.useSteam;
 			m_launchCommands.Text = Properties.Settings.Default.launchArgs;
 
+			//Default servers to display before the XML file has been downloaded
 			m_servers.Add("RP1 : S1", new GameServer("81.170.227.227", 2302));
 			m_servers.Add("RP1 : S2", new GameServer("81.170.229.148", 2302));
 
@@ -79,7 +83,7 @@ namespace Patcher
 
 			m_baseUrl = "http://launcher.dayzrp.com/";
 		//	m_baseUrl = "http://localhost/test/";
-			m_manifestUri = new Uri(Path.Combine(m_baseUrl, "current.xml"));
+			m_manifestUri = new Uri(Path.Combine(m_baseUrl, ManifestName));
 			m_patch = null;
 			m_patchServerBox.Text = m_baseUrl;
 			Begin();
@@ -95,7 +99,7 @@ namespace Patcher
 				Uri baseUri = new Uri(url);
 				m_baseUrl = baseUri.AbsoluteUri;
 				m_manifestUri = null;
-				m_manifestUri = new Uri(Path.Combine(m_baseUrl, "current.xml"));
+				m_manifestUri = new Uri(Path.Combine(m_baseUrl, ManifestName));
 			}
 			catch (Exception) { }
 			m_xmlUrlBox.Text = m_manifestUri == null ? "null" : m_manifestUri.AbsoluteUri;
@@ -131,29 +135,89 @@ namespace Patcher
 			if (text == "\b")
 				m_easter = "";
 			else
-				m_easter += text;
+				m_easter += text.ToLower();
 
-			if (m_easter == "devmode")
+			if (m_easter.EndsWith("devmode"))
 			{
 				m_devOptions.Visibility = Visibility.Visible;
 				m_tabs.SelectedItem = m_tabAbout;
 			}
-			else if (m_easter == "justice")
+			else if (m_easter.EndsWith("justice"))
 			{
 				m_badgeImg.Visibility = Visibility.Visible;
 				m_tabs.SelectedItem = m_tabAbout;
 			}
-			else if (m_easter == "nofunallowed")
+			else if (m_easter.EndsWith("nofunallowed"))
 				ProcessOutput.Run("http://www.youtube.com/watch?v=HPSBzs8a3NY", "", "", null, false, true);
-			else if (m_easter == "tir5")
+			else if (m_easter.EndsWith("tir5"))
 			{
 				string tirDir = ReadRegString("NaturalPoint\\NaturalPoint\\NPClient Location", "Path");
-				if(!String.IsNullOrEmpty(tirDir))
+				if (!String.IsNullOrEmpty(tirDir))
 					ProcessOutput.Run(Path.Combine(tirDir, "TrackIR5.exe"), "", tirDir, null, false, false);
 			}
+		//	else if (m_easter.EndsWith("test"))
+		//		Test();
 			else
 				return;
 			m_easter = "";
+		}
+
+		void Test()
+		{
+			LZMA.Encoder encoder = new LZMA.Encoder();
+
+			CoderPropID[] propIDs = 
+			{
+				CoderPropID.DictionarySize,
+				CoderPropID.PosStateBits,
+				CoderPropID.LitContextBits,
+				CoderPropID.LitPosBits,
+				CoderPropID.NumFastBytes,
+				CoderPropID.MatchFinder,
+				CoderPropID.EndMarker,
+			};
+			object[] properties = 
+			{
+				(Int32)(1<<26),
+				(Int32)(2),
+				(Int32)(3),
+				(Int32)(2),
+				(Int32)(128),
+				"bt4",
+				false,
+			};
+
+			encoder.SetCoderProperties(propIDs, properties);
+
+			FileInfo inputFile = new FileInfo("D:\\test.data");
+			Stream inStream = inputFile.OpenRead();
+			Stream outStream = new FileStream("D:\\test.lzma", FileMode.Create, FileAccess.Write);
+
+			encoder.Code(inStream, outStream, -1, -1, null);
+
+/*
+			FileInfo inputFile = new FileInfo("D:\\test.7z");
+			Stream inStream = inputFile.OpenRead();
+			Stream outStream = new FileStream("D:\\test.out", FileMode.Create, FileAccess.Write);
+
+			byte[] properties = new byte[5];
+			if (inStream.Read(properties, 0, 5) != 5)
+				throw (new Exception("input .lzma is too short"));
+			LZMA.Decoder decoder = new LZMA.Decoder();
+			decoder.SetDecoderProperties(properties);
+			long outSize = 0;
+			for (int i = 0; i < 8; i++)
+			{
+				int v = inStream.ReadByte();
+				if (v < 0)
+					throw (new Exception("Can't Read 1"));
+				outSize |= ((long)(byte)v) << (8 * i);
+			}
+			long compressedSize = inStream.Length - inStream.Position;
+			decoder.Code(inStream, outStream, compressedSize, outSize, null);*/
+
+			inStream.Close();
+			outStream.Close();
 		}
 
 		private string LauncherVersion { get { return App.LauncherVersion; } }
@@ -168,12 +232,42 @@ namespace Patcher
 		private PatchManifest m_patch;
 		private FileHashDatabase m_cache;
 
+		private struct DownloadLocation
+		{
+			public DownloadLocation(FileInfo dest)
+			{
+				destination = dest;
+				tempCompressed = null;
+			}
+			public DownloadLocation(FileInfo dest, FileInfo comp)
+			{
+				destination = dest;
+				tempCompressed = comp;
+			}
+			public FileInfo destination;
+			public FileInfo tempCompressed;
+		}
+		class CompressionTask
+		{
+			public CompressionTask(DownloadLocation d)
+			{
+				dl = d;
+				done = false;
+			}
+			public DownloadLocation dl;
+			public bool done;
+		}
+		private FileInfo TempDownloadFile(string relativeFile)
+		{
+			return new FileInfo(Path.GetTempFileName());
+		}
+
 		class PatchTasks
 		{
 			public int countPatchTasks;
 			public int totalPatchTasks;
 			public List<FileInfo> toDelete;
-			public Dictionary<FileInfo, Uri> toDownload;
+			public Dictionary<DownloadLocation, Uri> toDownload;
 			public int numErrors;
 		}
 		private PatchTasks m_tasks;
@@ -222,12 +316,12 @@ namespace Patcher
 			display.Items.Clear();
 			Log("Contacting patch server");
 		//	if (m_patch == null)
-				m_downloader.DownloadBytes(m_manifestUri, PatchManifestDownloaded);
+				m_downloader.DownloadBytes(m_manifestUri, PatchManifestDownloaded, null);
 		//	else
 		//		BeginScan();
 		}
 
-		private void PatchManifestDownloaded(Uri uri, byte[] raw, string error)
+		private void PatchManifestDownloaded(Uri uri, byte[] raw, string error, object userData)
 		{
 			bool guessValid = false;
 			try
@@ -324,12 +418,12 @@ namespace Patcher
 				countPatchTasks = 0,
 				totalPatchTasks = 1,
 				toDelete = new List<FileInfo>(),
-				toDownload = new Dictionary<FileInfo, Uri>(),
+				toDownload = new Dictionary<DownloadLocation, Uri>(),
 				numErrors = 0
 			};
 
 			m_tempNewPatcher = new FileInfo(Path.GetTempFileName()+"_launcher_update.exe");
-			m_tasks.toDownload.Add(m_tempNewPatcher, m_patch.launcherUri);
+			m_tasks.toDownload.Add(new DownloadLocation(m_tempNewPatcher), m_patch.launcherUri);
 			
 			Progress1.Value = Progress1.Minimum;
 			Progress2.Value = Progress2.Minimum;
@@ -386,6 +480,7 @@ namespace Patcher
 			if (error)
 			{
 				Log("Something went wrong when scanning installation directory");
+				m_taskStatus.Content = "Update failed";
 				SetIsPatching(false, false);
 				return;
 			}
@@ -400,13 +495,21 @@ namespace Patcher
 				}
 			}
 
+			if( m_patch.assets.Count == 0 )
+			{
+				Log("No files listed in patch manifest...");
+				m_taskStatus.Content = "Patching failed";
+				SetIsPatching(false, true);
+				return;
+			}
+
 			Debug.Assert(m_tasks == null);
 			m_tasks = new PatchTasks
 			{
 				countPatchTasks = 0,
 				totalPatchTasks = results.Count + m_patch.assets.Count,
 				toDelete = new List<FileInfo>(),
-				toDownload = new Dictionary<FileInfo, Uri>(),
+				toDownload = new Dictionary<DownloadLocation, Uri>(),
 				numErrors = 0
 			};
 			Progress1.Value = Progress1.Minimum;
@@ -442,7 +545,8 @@ namespace Patcher
 					if (!m_cache.IsFileValid(name, file, patchFile.hash))
 					{
 						Log_ThreadSafe("\t Invalid: " + name + ", get from " + patchFile.uri.ToString());
-						m_tasks.toDownload.Add(file, patchFile.uri);
+						var dl = new DownloadLocation(file, TempDownloadFile(name));
+						m_tasks.toDownload.Add(dl, patchFile.uri);
 					}
 				//	else
 				//		Log_ThreadSafe("\t Valid: " + name + ", " + stamp.ToString());
@@ -454,7 +558,8 @@ namespace Patcher
 				if(alreadyInspected.Contains(patchFile.Key.ToLowerInvariant()))
 					continue;
 				Log_ThreadSafe("\t Missing: " + patchFile.Key + ", get from " + patchFile.Value.uri.ToString());
-				m_tasks.toDownload.Add(m_cache.GetAbsoluteFile(patchFile.Key), patchFile.Value.uri);
+				var dl = new DownloadLocation(m_cache.GetAbsoluteFile(patchFile.Key), TempDownloadFile(patchFile.Key));
+				m_tasks.toDownload.Add(dl, patchFile.Value.uri);
 			}
 
 			m_cache.Save(CacheFile);
@@ -504,7 +609,14 @@ namespace Patcher
 			{
 				Log_ThreadSafe("\tDownloading " + nameInfo.Key);
 				SetTaskProgressBar_ThreadSafe(0, "");
-				object handle = m_downloader.DownloadFile(nameInfo.Value, nameInfo.Key.FullName, FileDownloaded, ProgressUpdate);
+				object decompressionTask = null;
+				string downloadTo = nameInfo.Key.destination.FullName;
+				if (nameInfo.Key.tempCompressed != null)
+				{
+					downloadTo = nameInfo.Key.tempCompressed.FullName;
+					decompressionTask = new CompressionTask(nameInfo.Key);
+				}
+				object handle = m_downloader.DownloadFile(nameInfo.Value, downloadTo, FileDownloaded, ProgressUpdate, decompressionTask);
 				if (handle == null)
 				{
 					Log_ThreadSafe("\tFailed to initiate download of " + nameInfo.Value.ToString());
@@ -528,15 +640,61 @@ namespace Patcher
 				}
 			}
 		}
-		private void FileDownloaded(Uri uri, byte[] raw, string error)
+		private void FileDownloaded(Uri uri, byte[] raw, string error, object decompressionTask)
 		{
 			SetTaskProgressBar_ThreadSafe(100, "");
-			IncrementPatchProgressBar_ThreadSafe(error != null);
 			if (error != null)
 			{
+				if (decompressionTask != null)
+				{
+					CompressionTask task = decompressionTask as CompressionTask;
+					if (task != null)
+						task.done = true;
+				}
+				IncrementPatchProgressBar_ThreadSafe(true);
 				Log_ThreadSafe("\tFailed to download " + uri.ToString() + ": " + error);
 				return;
 			}
+			if (decompressionTask != null)
+			{
+				string file = "?";
+				CompressionTask task = null;
+				try
+				{
+					task = (CompressionTask)decompressionTask;
+					file = task.dl.destination.Name;
+					SetTaskProgressBar_ThreadSafe(100, "Decompressing " + task.dl.destination.Name);
+					task.dl.destination.Directory.Create();
+
+					Stream inStream = task.dl.tempCompressed.OpenRead();
+					Stream outStream = task.dl.destination.OpenWrite();
+
+					byte[] properties = new byte[5];
+					if (inStream.Read(properties, 0, 5) != 5)
+						throw (new Exception("input .lzma is too short"));
+					LZMA.Decoder decoder = new LZMA.Decoder();
+					decoder.SetDecoderProperties(properties);
+					long outSize = 0;
+					for (int i = 0; i < 8; i++)
+					{
+						int v = inStream.ReadByte();
+						if (v < 0)
+							throw (new Exception("Can't Read 1"));
+						outSize |= ((long)(byte)v) << (8 * i);
+					}
+					long compressedSize = inStream.Length - inStream.Position;
+					decoder.Code(inStream, outStream, compressedSize, outSize, null);
+					task.done = true;
+				}
+				catch (Exception e)
+				{
+					if (task != null)
+						task.done = true;
+					IncrementPatchProgressBar_ThreadSafe(true);
+					Log_ThreadSafe("\tFailed during decompression of " + file + ": " + e.ToString());
+				}
+			}
+			IncrementPatchProgressBar_ThreadSafe(false);
 		}
 		private void ProgressUpdate(long recieved, long total, int percent, DateTime startTime)
 		{
@@ -809,7 +967,7 @@ namespace Patcher
 			{
 				if (m_serverListBox.SelectedIndex < 0)
 					return;
-				//LaunchGame(true);
+				LaunchGame(true);
 			}
 		}
 
