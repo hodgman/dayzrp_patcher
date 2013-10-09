@@ -12,6 +12,7 @@ namespace util
 {
 	public class PatchManifest
 	{
+		public string mode;
 		public Uri launcherUri;
 		public string launcherVersion;
 		public string dataDir;
@@ -40,6 +41,7 @@ namespace util
 			XmlNode xmlPatch = doc.SelectSingleNode("patch|dayzrp/patch");
 			patchInfo.launcherVersion = xmlPatch.Attribute("launcherVersion", "");
 			string launcherUrl = xmlPatch.Attribute("launcherUrl", "");
+			patchInfo.mode = xmlPatch.Attribute("mode", "");
 			if (!Uri.TryCreate(baseUri, launcherUrl, out patchInfo.launcherUri))
 				return null;
 			patchInfo.dataDir = xmlPatch.Attribute("data", "");

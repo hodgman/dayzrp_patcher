@@ -136,6 +136,11 @@ namespace Manifester
 		{
 			try
 			{
+				int toRemove = results.FindIndex(x => x.Name.ToLowerInvariant() == "launcher.cache");
+				if (toRemove >= 0)
+				{
+					results.RemoveAt(toRemove);
+				}
 				CreateManifest_(results, args);
 			}
 			catch (System.Exception ex)
@@ -156,7 +161,7 @@ namespace Manifester
 			{
 				patcher = ProcessOutput.Run(patcherExe, "-version", "", null, false, false);
 			}
-			catch (System.Exception e) { }
+			catch (System.Exception) { }
 			string patcherVersion = "[Fix me by hand]";
 			if (patcher != null)
 			{
@@ -164,7 +169,6 @@ namespace Manifester
 				patcherVersion = patcher.stdout.Aggregate((i, j) => i + "\n" + j);
 			}
 			
-			LZMA.Encoder encoder = new LZMA.Encoder();
 			CoderPropID[] propIDs = 
 			{
 				CoderPropID.DictionarySize,
@@ -185,7 +189,6 @@ namespace Manifester
 				"bt4",
 				false,
 			};
-			encoder.SetCoderProperties(propIDs, properties);
 
 			SetStatus("Starting XML file...", 0);
 
@@ -196,12 +199,15 @@ namespace Manifester
 			XmlAttribute data = doc.CreateAttribute("data");
 			XmlAttribute launcherVersion = doc.CreateAttribute("launcherVersion");
 			XmlAttribute launcherUrl = doc.CreateAttribute("launcherUrl");
+			XmlAttribute patchMode = doc.CreateAttribute("mode");
 			launcherVersion.Value = patcherVersion;
 			launcherUrl.Value = Path.GetFileName(patcherExe);
 			data.Value = dataDir;
+			patchMode.Value = "lzma";
 			patchNode.Attributes.Append(data);
 			patchNode.Attributes.Append(launcherUrl);
 			patchNode.Attributes.Append(launcherVersion);
+			patchNode.Attributes.Append(patchMode);
 
 			XmlComment comment = doc.CreateComment("<server name='RP1 : S1' host='81.170.227.227' port='2302'/>");
 			serversNode.AppendChild(comment);
@@ -217,6 +223,7 @@ namespace Manifester
 				XmlElement fileNode = doc.CreateElement("file");
 				XmlAttribute path = doc.CreateAttribute("path");
 				XmlAttribute hash = doc.CreateAttribute("hash");
+				XmlAttribute url = doc.CreateAttribute("url");
 				string nameValue = GetRelativeName(file, projectPath);
 				string hashValue;
 				SetStatus("Hashing " + nameValue, progress++ / progressCount);
@@ -227,23 +234,39 @@ namespace Manifester
 				}
 				path.Value = nameValue;
 				hash.Value = hashValue;
+				url.Value = dataDir + "/" + nameValue + ".lzma";
 				fileNode.Attributes.Append(path);
 				fileNode.Attributes.Append(hash);
+				fileNode.Attributes.Append(url);
 				patchNode.AppendChild(fileNode);
 
 				SetStatus("Compressing " + nameValue, progress++ / progressCount);
 				using (Stream inStream = file.OpenRead())
 				{
-					string outFile = Path.Combine(destPath, nameValue);
+					string outFile = Path.Combine(destPath, nameValue + ".lzma");
 					EnsurePathExists(outFile);
+				//	if( (new FileInfo(outFile)).Exists )
+				//		continue;
 					Stream outStream = new FileStream(outFile, FileMode.Create, FileAccess.Write);
 
+					LZMA.Encoder encoder = new LZMA.Encoder();
+					encoder.SetCoderProperties(propIDs, properties);
+					
+					encoder.WriteCoderProperties(outStream);
+					Int64 fileSize;
+					fileSize = inStream.Length;
+					for (int i = 0; i < 8; i++)
+						outStream.WriteByte((Byte)(fileSize >> (8 * i)));
+					
 					encoder.Code(inStream, outStream, -1, -1, null);
+
+					inStream.Close();
+					outStream.Close();
 				}
 			}
 			SetStatus("Saving XML...", 1);
 			doc.Save(outputFilename);
-			SetStatus("Done!", 1);
+			SetStatus("Done!", 0);
 
 
 			Dispatcher.BeginInvoke(DispatcherPriority.Send, (Action)delegate()
@@ -258,9 +281,7 @@ namespace Manifester
 				FileInfo file = new FileInfo(path);
 				file.Directory.Create();
 			}
-			catch (System.Exception ex)
-			{
-			}
+			catch (System.Exception) { }
 		}
 		private string GetRelativeName(FileInfo file, string projectPath)
 		{

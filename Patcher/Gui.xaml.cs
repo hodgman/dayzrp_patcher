@@ -48,8 +48,8 @@ namespace Patcher
 			m_launchCommands.Text = Properties.Settings.Default.launchArgs;
 
 			//Default servers to display before the XML file has been downloaded
-			m_servers.Add("RP1 : S1", new GameServer("81.170.227.227", 2302));
-			m_servers.Add("RP1 : S2", new GameServer("81.170.229.148", 2302));
+			m_servers.Add("RP1 : S1", new GameServer("81.170.233.200", 2302));
+			m_servers.Add("RP1 : S2", new GameServer("81.170.233.202", 2302));
 
 			List<ServerListItem> initialServerList = new List<ServerListItem>();
 			foreach (var server in m_servers)
@@ -383,6 +383,14 @@ namespace Patcher
 				RefreshServerList();
 			}
 
+			if (m_patch.mode != "lzma")
+			{
+				Log("This launcher version is out of date: Unable to understand the patch format!!!" );
+				SetIsPatching(false, guessValid);
+				RefreshServerList();
+				return;
+			}
+
 			try
 			{
 				DirectoryInfo dir = new DirectoryInfo(m_installPath_DayZRP);
@@ -597,6 +605,7 @@ namespace Patcher
 
 		private void DoPatchTasks()
 		{
+			List<CompressionTask> decompressionTasks = new List<CompressionTask>();
 			foreach (var file in m_tasks.toDelete)
 			{
 				file.Delete();
@@ -607,14 +616,15 @@ namespace Patcher
 			List<object> downloadHandles = new List<object>();
 			foreach (var nameInfo in m_tasks.toDownload)
 			{
-				Log_ThreadSafe("\tDownloading " + nameInfo.Key);
+				Log_ThreadSafe("\tDownloading " + nameInfo.Key.destination.Name);
 				SetTaskProgressBar_ThreadSafe(0, "");
-				object decompressionTask = null;
+				CompressionTask decompressionTask = null;
 				string downloadTo = nameInfo.Key.destination.FullName;
 				if (nameInfo.Key.tempCompressed != null)
 				{
 					downloadTo = nameInfo.Key.tempCompressed.FullName;
 					decompressionTask = new CompressionTask(nameInfo.Key);
+					decompressionTasks.Add(decompressionTask);
 				}
 				object handle = m_downloader.DownloadFile(nameInfo.Value, downloadTo, FileDownloaded, ProgressUpdate, decompressionTask);
 				if (handle == null)
@@ -639,6 +649,19 @@ namespace Patcher
 					}
 				}
 			}
+			while (decompressionTasks.Count > 0)
+			{
+				if (decompressionTasks[0].done)
+				{
+					decompressionTasks.RemoveAt(0);
+				}
+				else
+				{
+					string name = decompressionTasks[0].dl.destination.Name;
+					SetTaskProgressBar_ThreadSafe(0, "Decompressing " + name);
+					Thread.Sleep(100);
+				}
+			}
 		}
 		private void FileDownloaded(Uri uri, byte[] raw, string error, object decompressionTask)
 		{
@@ -659,15 +682,16 @@ namespace Patcher
 			{
 				string file = "?";
 				CompressionTask task = null;
+				Stream inStream = null;
+				Stream outStream = null;
 				try
 				{
 					task = (CompressionTask)decompressionTask;
 					file = task.dl.destination.Name;
-					SetTaskProgressBar_ThreadSafe(100, "Decompressing " + task.dl.destination.Name);
 					task.dl.destination.Directory.Create();
 
-					Stream inStream = task.dl.tempCompressed.OpenRead();
-					Stream outStream = task.dl.destination.OpenWrite();
+					inStream = task.dl.tempCompressed.OpenRead();
+					outStream = task.dl.destination.OpenWrite();
 
 					byte[] properties = new byte[5];
 					if (inStream.Read(properties, 0, 5) != 5)
@@ -683,6 +707,7 @@ namespace Patcher
 						outSize |= ((long)(byte)v) << (8 * i);
 					}
 					long compressedSize = inStream.Length - inStream.Position;
+
 					decoder.Code(inStream, outStream, compressedSize, outSize, null);
 					task.done = true;
 				}
@@ -692,6 +717,19 @@ namespace Patcher
 						task.done = true;
 					IncrementPatchProgressBar_ThreadSafe(true);
 					Log_ThreadSafe("\tFailed during decompression of " + file + ": " + e.ToString());
+				}
+				finally
+				{
+					if (inStream != null)
+						inStream.Close();
+					if (outStream != null)
+						outStream.Close();
+					try
+					{
+						if (task != null)
+							task.dl.tempCompressed.Delete();
+					}
+					catch (Exception) { }
 				}
 			}
 			IncrementPatchProgressBar_ThreadSafe(false);
