@@ -24,6 +24,7 @@ using System.Timers;
 using Microsoft.Win32;
 using SevenZip;
 using LZMA = SevenZip.Compression.LZMA;
+using Forms = System.Windows.Forms;
 
 namespace Patcher
 {
@@ -47,9 +48,15 @@ namespace Patcher
 			m_steamTickBox.IsChecked = Properties.Settings.Default.useSteam;
 			m_launchCommands.Text = Properties.Settings.Default.launchArgs;
 
+			m_manualInstallBox.IsChecked = Properties.Settings.Default.manualInstall;
+			m_manualA2Dir.Text = Properties.Settings.Default.manualA2Dir;
+			m_manualA2OADir.Text = Properties.Settings.Default.manualA2OADir;
+
 			//Default servers to display before the XML file has been downloaded
 			m_servers.Add("RP1 : S1", new GameServer("81.170.233.200", 2302));
 			m_servers.Add("RP1 : S2", new GameServer("81.170.233.202", 2302));
+			m_servers.Add("RP1 : S3", new GameServer("81.170.226.216", 2302));
+			m_servers.Add("Event Server", new GameServer("81.170.226.216", 2312));
 
 			List<ServerListItem> initialServerList = new List<ServerListItem>();
 			foreach (var server in m_servers)
@@ -69,15 +76,65 @@ namespace Patcher
 
 			m_installPath_Arma2 = ReadRegString("Bohemia Interactive Studio\\ArmA 2", "MAIN");
 			m_installPath_Arma2OA = ReadRegString("Bohemia Interactive Studio\\ArmA 2 OA", "MAIN");
-			if (m_installPath_Arma2 == null)
+			if (String.IsNullOrEmpty(m_installPath_Arma2))
+				m_installPath_Arma2 = ReadRegString("Bohemia Interactive Studio\\ArmA 2 Free", "MAIN");
+			if (String.IsNullOrEmpty(m_installPath_Arma2) && Properties.Settings.Default.manualInstall)
+				m_installPath_Arma2 = Properties.Settings.Default.manualA2Dir;
+			if (String.IsNullOrEmpty(m_installPath_Arma2OA) && Properties.Settings.Default.manualInstall)
+				m_installPath_Arma2OA = Properties.Settings.Default.manualA2OADir;
+			while (String.IsNullOrEmpty(m_installPath_Arma2))
 			{
-				MessageBox.Show("Could not locate Arma 2 installation");
-				Application.Current.Shutdown();
+				MessageBoxResult r = MessageBox.Show("Could not locate Arma 2 installation.\n Would you like to manually locate the installation?", "Arma 2 not installed correctly!", MessageBoxButton.OKCancel);
+				if (r == MessageBoxResult.OK)
+				{
+					Forms.OpenFileDialog fileBrowser = new Forms.OpenFileDialog();
+					fileBrowser.CheckFileExists = true;
+					fileBrowser.CheckPathExists = true;
+					fileBrowser.ReadOnlyChecked = true;
+					fileBrowser.Title = "Please locate Arma2.exe";
+					fileBrowser.FileName = "Arma2.exe";
+					fileBrowser.Filter = "Executable files (*.exe)|*.exe|All files (*.*)|*.*";
+					fileBrowser.RestoreDirectory = true;
+					if (fileBrowser.ShowDialog() == Forms.DialogResult.OK)
+					{
+						m_installPath_Arma2 = Path.GetDirectoryName(fileBrowser.FileName);
+						m_manualA2Dir.Text = m_installPath_Arma2;
+						Properties.Settings.Default.manualA2Dir = m_installPath_Arma2;
+						m_manualInstallBox.IsChecked = true;
+					}
+				}
+				else
+				{
+					Application.Current.Shutdown();
+					return;
+				}
 			}
-			if (m_installPath_Arma2OA == null)
+			while (String.IsNullOrEmpty(m_installPath_Arma2OA))
 			{
-				MessageBox.Show("Could not locate Arma 2 Operation Arrowhead installation");
-				Application.Current.Shutdown();
+				MessageBoxResult r = MessageBox.Show("Could not locate Arma 2 Operation Arrowhead installation.\n Would you like to manually locate the installation?", "Arma 2 OA not installed correctly!", MessageBoxButton.OKCancel);
+				if (r == MessageBoxResult.OK)
+				{
+					Forms.OpenFileDialog fileBrowser = new Forms.OpenFileDialog();
+					fileBrowser.CheckFileExists = true;
+					fileBrowser.CheckPathExists = true;
+					fileBrowser.ReadOnlyChecked = true;
+					fileBrowser.Title = "Please locate Arma2OA.exe";
+					fileBrowser.FileName = "Arma2OA.exe";
+					fileBrowser.Filter = "Executable files (*.exe)|*.exe|All files (*.*)|*.*";
+					fileBrowser.RestoreDirectory = true;
+					if (fileBrowser.ShowDialog() == Forms.DialogResult.OK)
+					{
+						m_installPath_Arma2OA = Path.GetDirectoryName(fileBrowser.FileName);
+						m_manualA2OADir.Text = m_installPath_Arma2OA;
+						Properties.Settings.Default.manualA2OADir = m_installPath_Arma2OA;
+						m_manualInstallBox.IsChecked = true;
+					}
+				}
+				else
+				{
+					Application.Current.Shutdown();
+					return;
+				}
 			}
 			m_installPath_DayZRP = Path.Combine(m_installPath_Arma2OA, "./@DayZRP");
 
@@ -87,6 +144,12 @@ namespace Patcher
 			m_patch = null;
 			m_patchServerBox.Text = m_baseUrl;
 			Begin();
+		}
+
+		private void m_manualInstallBox_Changed(object sender, RoutedEventArgs e)
+		{
+			Properties.Settings.Default.manualInstall = (m_manualInstallBox.IsChecked == true);
+			Properties.Settings.Default.Save();
 		}
 
 		private void m_patchServerBox_TextChanged(object sender, TextChangedEventArgs e)
@@ -148,76 +211,16 @@ namespace Patcher
 				m_tabs.SelectedItem = m_tabAbout;
 			}
 			else if (m_easter.EndsWith("nofunallowed"))
-				ProcessOutput.Run("http://www.youtube.com/watch?v=HPSBzs8a3NY", "", "", null, false, true);
+				ProcessOutput.RunSafe("http://www.youtube.com/watch?v=HPSBzs8a3NY", "", "", null, false, true);
 			else if (m_easter.EndsWith("tir5"))
 			{
 				string tirDir = ReadRegString("NaturalPoint\\NaturalPoint\\NPClient Location", "Path");
 				if (!String.IsNullOrEmpty(tirDir))
-					ProcessOutput.Run(Path.Combine(tirDir, "TrackIR5.exe"), "", tirDir, null, false, false);
+					ProcessOutput.RunSafe(Path.Combine(tirDir, "TrackIR5.exe"), "", tirDir, null, false, false);
 			}
-		//	else if (m_easter.EndsWith("test"))
-		//		Test();
 			else
 				return;
 			m_easter = "";
-		}
-
-		void Test()
-		{
-			LZMA.Encoder encoder = new LZMA.Encoder();
-
-			CoderPropID[] propIDs = 
-			{
-				CoderPropID.DictionarySize,
-				CoderPropID.PosStateBits,
-				CoderPropID.LitContextBits,
-				CoderPropID.LitPosBits,
-				CoderPropID.NumFastBytes,
-				CoderPropID.MatchFinder,
-				CoderPropID.EndMarker,
-			};
-			object[] properties = 
-			{
-				(Int32)(1<<26),
-				(Int32)(2),
-				(Int32)(3),
-				(Int32)(2),
-				(Int32)(128),
-				"bt4",
-				false,
-			};
-
-			encoder.SetCoderProperties(propIDs, properties);
-
-			FileInfo inputFile = new FileInfo("D:\\test.data");
-			Stream inStream = inputFile.OpenRead();
-			Stream outStream = new FileStream("D:\\test.lzma", FileMode.Create, FileAccess.Write);
-
-			encoder.Code(inStream, outStream, -1, -1, null);
-
-/*
-			FileInfo inputFile = new FileInfo("D:\\test.7z");
-			Stream inStream = inputFile.OpenRead();
-			Stream outStream = new FileStream("D:\\test.out", FileMode.Create, FileAccess.Write);
-
-			byte[] properties = new byte[5];
-			if (inStream.Read(properties, 0, 5) != 5)
-				throw (new Exception("input .lzma is too short"));
-			LZMA.Decoder decoder = new LZMA.Decoder();
-			decoder.SetDecoderProperties(properties);
-			long outSize = 0;
-			for (int i = 0; i < 8; i++)
-			{
-				int v = inStream.ReadByte();
-				if (v < 0)
-					throw (new Exception("Can't Read 1"));
-				outSize |= ((long)(byte)v) << (8 * i);
-			}
-			long compressedSize = inStream.Length - inStream.Position;
-			decoder.Code(inStream, outStream, compressedSize, outSize, null);*/
-
-			inStream.Close();
-			outStream.Close();
 		}
 
 		private string LauncherVersion { get { return App.LauncherVersion; } }
@@ -312,13 +315,15 @@ namespace Patcher
 
 		private void Begin()
 		{
+			if (App.UpdateDisabled)
+			{
+				PatchManifestDownloaded(null, null, "Update mode disabled", null);
+				return;
+			}
 			SetIsPatching();
 			display.Items.Clear();
 			Log("Contacting patch server");
-		//	if (m_patch == null)
-				m_downloader.DownloadBytes(m_manifestUri, PatchManifestDownloaded, null);
-		//	else
-		//		BeginScan();
+			m_downloader.DownloadBytes(m_manifestUri, PatchManifestDownloaded, null);
 		}
 
 		private void PatchManifestDownloaded(Uri uri, byte[] raw, string error, object userData)
@@ -401,7 +406,7 @@ namespace Patcher
 					MessageBoxResult r = MessageBox.Show("DayZRP is not currently installed!\nWould you like to use BitTorrent for the initial installation (faster)?", "Couldn't find existing DayZRP installation", MessageBoxButton.YesNo);
 					if (r == MessageBoxResult.Yes)
 					{
-						ProcessOutput.Run("http://www.dayzrp.com/t-dayzrp-mod-download", "", "", null, false, true);
+						ProcessOutput.RunSafe("http://www.dayzrp.com/t-dayzrp-mod-download", "", "", null, false, true);
 						SetIsPatching(false, false);
 						return;
 					}
@@ -459,7 +464,7 @@ namespace Patcher
 				try
 				{
 					string args = "-move \"" + currentExe + "\"";
-					if (ProcessOutput.Run(m_tempNewPatcher.FullName, args, Path.GetDirectoryName(currentExe), null, true, true) == null)
+					if (ProcessOutput.RunSafe(m_tempNewPatcher.FullName, args, Path.GetDirectoryName(currentExe), null, true, true) == null)
 						Log("Trouble starting new launcher version!");
 					else
 						Application.Current.Shutdown();
@@ -497,7 +502,7 @@ namespace Patcher
 				MessageBoxResult r = MessageBox.Show("DayZRP is not currently installed!\nWould you like to use BitTorrent for the initial installation (faster)?", "Couldn't find existing DayZRP installation", MessageBoxButton.YesNo);
 				if (r == MessageBoxResult.Yes)
 				{
-					ProcessOutput.Run("http://www.dayzrp.com/t-dayzrp-mod-download", "", "", null, false, true);
+					ProcessOutput.RunSafe("http://www.dayzrp.com/t-dayzrp-mod-download", "", "", null, false, true);
 					SetIsPatching(false, false);
 					return;
 				}
@@ -843,70 +848,77 @@ namespace Patcher
 
 		private void LaunchGame(bool joinServer)
 		{
-			if (m_isInstallValid == false)
+			try
 			{
-				MessageBoxResult r = MessageBox.Show("Install is not complete, launch anyway?", "Install not validated", MessageBoxButton.OKCancel);
-				if (r == MessageBoxResult.Cancel)
-					return;
-			}
-			if (m_game != null)
-				m_game.Kill();
-			m_game = null;
-			string dir = Path.GetFullPath(m_installPath_Arma2OA);
-			string a2path = Path.GetFullPath(m_installPath_Arma2);
-			string exe = Path.GetFullPath(Path.Combine(dir, "./Expansion/beta/ARMA2OA.exe"));
-			string args = String.Format(
-				"\"-mod={0};EXPANSION;ca\" " +
-				"\"-beta=Expansion\\beta;Expansion\\beta\\Expansion;\" " +
-				"-mod=@DayZRP -nosplash -nopause -skipIntro -world=Chernarus ",
-				a2path);
-			EventHandler onExit = (EventHandler)delegate(object a, EventArgs b)
-			{
-				Dispatcher.BeginInvoke((Action)delegate
+				if (m_isInstallValid == false)
 				{
-					OnGameExit();
-				});
-			};
-
-			if (joinServer)
-			{
-				int i = 0;
-				foreach (var server in m_servers)
-				{
-					if (i != m_serverListBox.SelectedIndex)
-					{
-						++i;
-						continue;
-					}
-					args += " -connect=" + server.Value.Settings.Host + " -port=" + server.Value.Settings.RemotePort;
-					break;
+					MessageBoxResult r = MessageBox.Show("Install is not complete, launch anyway?", "Install not validated", MessageBoxButton.OKCancel);
+					if (r == MessageBoxResult.Cancel)
+						return;
 				}
-			}
-
-			if (m_steamTickBox.IsChecked == true)
-			{
-				string steamExe = ReadRegString("Valve\\Steam", "SteamExe");
-				if (steamExe != null)
+				if (m_game != null)
+					m_game.Kill();
+				m_game = null;
+				string dir = Path.GetFullPath(m_installPath_Arma2OA);
+				string a2path = Path.GetFullPath(m_installPath_Arma2);
+				string exe = Path.GetFullPath(Path.Combine(dir, "./Expansion/beta/ARMA2OA.exe"));
+				string args = String.Format(
+					"\"-mod={0};EXPANSION;ca\" " +
+					"\"-beta=Expansion\\beta;Expansion\\beta\\Expansion;\" " +
+					"-mod=@DayZRP -nosplash -nopause -skipIntro -world=Chernarus ",
+					a2path);
+				EventHandler onExit = (EventHandler)delegate(object a, EventArgs b)
 				{
-					exe = steamExe;
-					args = "-applaunch 219540 " + args;
+					Dispatcher.BeginInvoke((Action)delegate
+					{
+						OnGameExit();
+					});
+				};
+
+				if (joinServer)
+				{
+					int i = 0;
+					foreach (var server in m_servers)
+					{
+						if (i != m_serverListBox.SelectedIndex)
+						{
+							++i;
+							continue;
+						}
+						args += " -connect=" + server.Value.Settings.Host + " -port=" + server.Value.Settings.RemotePort;
+						break;
+					}
+				}
+
+				if (m_steamTickBox.IsChecked == true)
+				{
+					string steamExe = ReadRegString("Valve\\Steam", "SteamExe");
+					if (steamExe != null)
+					{
+						exe = steamExe;
+						args = "-applaunch 219540 " + args;
+					}
+					else
+						MessageBox.Show("Could not locate Steam installation");
+				}
+
+				if (!String.IsNullOrEmpty(m_launchCommands.Text))
+					args = args + " " + m_launchCommands.Text;
+
+				m_game = ProcessOutput.Run(exe, args, dir, onExit, false, false);
+				if (m_game != null && !m_game.Finished)
+				{
+					m_taskStatus.Content = "Game is running...";
+					m_btnLaunch1.IsEnabled = false;
+					m_btnLaunch2.IsEnabled = false;
 				}
 				else
-					MessageBox.Show("Could not locate Steam installation");
+					m_taskStatus.Content = "Error launching game.";
 			}
-
-			if (!String.IsNullOrEmpty(m_launchCommands.Text))
-				args = args + " " + m_launchCommands.Text;
-
-			m_game = ProcessOutput.Run(exe, args, dir, onExit, false, false);
-			if (m_game != null && !m_game.Finished)
+			catch (System.Exception ex)
 			{
-				m_taskStatus.Content = "Game is running...";
-				m_btnLaunch1.IsEnabled = false;
-				m_btnLaunch2.IsEnabled = false;
+				MessageBox.Show("Please report this error: " + ex.ToString());
 			}
-			else
-				m_taskStatus.Content = "Error launching game.";
 		}
 		private void Join_Click(object sender, RoutedEventArgs e)
 		{
@@ -1011,24 +1023,24 @@ namespace Patcher
 
 		private void GoToDayZRP_Rules_Click(object sender, RoutedEventArgs e)
 		{
-			ProcessOutput.Run("http://www.dayzrp.com/rules.php", "", "", null, false, true);
+			ProcessOutput.RunSafe("http://www.dayzrp.com/rules.php", "", "", null, false, true);
 		}
 		private void GoToDayZRP_Team_Click(object sender, RoutedEventArgs e)
 		{
-			ProcessOutput.Run("http://www.dayzrp.com/showteam.php", "", "", null, false, true);
+			ProcessOutput.RunSafe("http://www.dayzrp.com/showteam.php", "", "", null, false, true);
 		}
 		private void GoToDayZRP_Click(object sender, RoutedEventArgs e)
 		{
-			ProcessOutput.Run("http://www.dayzrp.com/", "", "", null, false, true);
+			ProcessOutput.RunSafe("http://www.dayzrp.com/", "", "", null, false, true);
 		}
 
 		private void LaunchTeamSpeak_Click(object sender, RoutedEventArgs e)
 		{
-			ProcessOutput.Run("ts3server://ts.dayzrp.com?port=9987&password=dayzrp", "", "", null, false, true);
+			ProcessOutput.RunSafe("ts3server://ts.dayzrp.com?port=9987&password=dayzrp", "", "", null, false, true);
 		}
 		private void LaunchIrc_Click(object sender, RoutedEventArgs e)
 		{
-			ProcessOutput.Run("http://webchat.quakenet.org/?channels=DayZRP&uio=Mj10cnVlJjQ9dHJ1ZSY5PXRydWUmMTA9dHJ1ZSYxMT0yMTUe9", "", "", null, false, true);
+			ProcessOutput.RunSafe("http://webchat.quakenet.org/?channels=DayZRP&uio=Mj10cnVlJjQ9dHJ1ZSY5PXRydWUmMTA9dHJ1ZSYxMT0yMTUe9", "", "", null, false, true);
 		}
 	}
 	public class ServerListItem

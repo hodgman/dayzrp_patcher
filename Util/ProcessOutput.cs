@@ -59,22 +59,26 @@ namespace util
 			proc.StartInfo.CreateNoWindow = true;
 			proc.StartInfo.WorkingDirectory = dir;
 			proc.EnableRaisingEvents = true;
+			proc.Start();
+			if (!runAsAdmin && !shellExec)
+			{
+				proc.BeginOutputReadLine();
+				proc.BeginErrorReadLine();
+			}
+			return output;
+		}
+
+		public static ProcessOutput RunSafe(string executable, string args, string dir, EventHandler onExit, bool runAsAdmin, bool shellExec)
+		{
 			try
 			{
-				proc.Start();
-				if (!runAsAdmin && !shellExec)
-				{
-					proc.BeginOutputReadLine();
-					proc.BeginErrorReadLine();
-				}
-				return output;
+				return Run(executable, args, dir, onExit, runAsAdmin, shellExec);
 			}
 			catch (Exception)
 			{
 				return null;
 			}
 		}
-
 		private void OnOutput(object proc, DataReceivedEventArgs data)
 		{
 			if (!string.IsNullOrEmpty(data.Data))
